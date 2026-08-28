@@ -304,6 +304,14 @@ followed by `guard.denied` on the ops view. An agent never audits itself.
 
 ## 10. Shopify order source (VERIFIED LIVE Aug 23)
 
+> **Note for repo readers:** the `tmp-*.ts` helpers referenced in this section
+> are local scratch scripts, deliberately not committed. What each does, if you
+> want to recreate one: `tmp-dodo-list.ts` lists test-mode Dodo payments with
+> their refund status (SDK `payments.list`); `tmp-shopify-check.ts` verifies the
+> Shopify token, scope and order query in one run; `tmp-shopify-e2e.ts` seeds a
+> demo ticket by calling the existing `/tools/*` webhooks. Each is ~20 lines
+> against interfaces already in `src/`.
+
 `src/integrations/shopify.ts` implements `OrderSource` against the Admin GraphQL
 API, read-only (`read_orders`). App `resolve-order-source` **v0.2** is installed
 on `resolve-demo.myshopify.com` (custom distribution link from the Partner
