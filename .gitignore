@@ -1,0 +1,28 @@
+# Private — never in the public repo
+backup/
+
+# Submission strategy — judges read the repo, and this one discusses prize
+# geometry and the team-size conflict. Kept in docs/ so it is easy to work with,
+# excluded so it stays ours. (docs/RECORDING-NOTES.md is deliberately NOT here:
+# it is operational only, with the strategy content stripped out.)
+docs/DEVPOST-SUBMISSION.md
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Runtime state (idempotency records)
+data/
+
+# Local tooling
+.claude/
+tmp-*.ts
+node_modules/
+dist/
+
+# Yarn (web/) — keep yarn.lock, drop the local install state
+.yarn/install-state.gz
+.yarn/cache/
+*.log
+.DS_Store
