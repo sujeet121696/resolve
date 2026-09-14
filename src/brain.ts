@@ -3,11 +3,18 @@
 // Both agents (Resolution + Policy-Guard judgment call) go through this
 // interface, so the LLM provider is swappable via the BRAIN env var:
 //   BRAIN=mock    → deterministic rules, zero cost (local development default)
-//   BRAIN=auto    → groq primary, gemini fallback (the demo setting)
+//   BRAIN=auto    → groq primary, sarvam fallback (everyday dev default; sarvam
+//                   replaced gemini as fallback Sept 2026 — 20/20 on the Step 3
+//                   harness at p50 3.2 s vs gemini's 20-requests/day free tier)
+//   BRAIN=auto-sarvam → sarvam primary, groq fallback (the DEMO-DAY setting:
+//                   Sarvam is a hackathon sponsor, so the sponsor model makes
+//                   the guarded decisions live; Groq stays as the safety net)
 //   BRAIN=groq    → Groq free tier — fast: measured p50 1.6 s for the full
 //                   propose+judge double call (Step 3 harness, Aug 21)
 //   BRAIN=gemini  → Google AI Studio — free tier is 20 req/day and slow
 //                   (2–13 s per call), so it's the fallback, not the primary
+//   BRAIN=sarvam  → Sarvam AI (Indian model, sarvam-105b-conversations) —
+//                   measured ~1.8 s/call Sept 2026, JSON mode works
 //   BRAIN=claude  → real Anthropic API (kept as the production path)
 //
 // Note: the guard's HARD checks (auto-limit, idempotency, verified flag) are
@@ -20,10 +27,11 @@ import { mockBrain } from "./brain/mock.js";
 import { claudeBrain } from "./brain/claude.js";
 import { geminiBrain } from "./brain/gemini.js";
 import { groqBrain } from "./brain/groq.js";
+import { sarvamBrain } from "./brain/sarvam.js";
 
 export interface Brain {
   /** Which implementation is live — shown on the ops view. */
-  name: "mock" | "groq" | "gemini" | "claude";
+  name: "mock" | "groq" | "gemini" | "sarvam" | "claude";
   /** Resolution agent: facts in, proposed action out. */
   propose(facts: CaseFacts): Promise<ResolutionProposal>;
   /** Policy-Guard judgment call: proposal in, verdict out. */
@@ -57,9 +65,11 @@ function withFallback(primary: Brain, backup: Brain): Brain {
 
 export function getBrain(): Brain {
   const choice = (process.env.BRAIN ?? "mock").toLowerCase();
-  if (choice === "auto") return withFallback(groqBrain, geminiBrain);
+  if (choice === "auto") return withFallback(groqBrain, sarvamBrain);
+  if (choice === "auto-sarvam") return withFallback(sarvamBrain, groqBrain);
   if (choice === "claude") return claudeBrain;
   if (choice === "gemini") return geminiBrain;
+  if (choice === "sarvam") return sarvamBrain;
   if (choice === "groq") return groqBrain;
   if (choice !== "mock") {
     console.warn(`Unknown BRAIN="${choice}" — falling back to mock`);
