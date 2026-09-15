@@ -13,8 +13,12 @@
 import type { CaseFacts, GuardVerdict, ResolutionProposal } from "../types.js";
 import { getHelpdesk } from "../helpdesk.js";
 import { emitEvent } from "../events.js";
+import { getPolicy } from "../policy-config.js";
 
-const FOLLOWUP_MINUTES = Number(process.env.ESCALATION_FOLLOWUP_MINUTES ?? 60);
+// Source of truth is config/policy.json (policy-as-config); the env var stays
+// as the ops-level override so a demo can shrink the wait to a couple of
+// minutes without editing the merchant-facing file.
+const FOLLOWUP_MINUTES = Number(process.env.ESCALATION_FOLLOWUP_MINUTES ?? getPolicy().escalation_followup_minutes);
 
 export interface EscalationResult {
   escalated: boolean;

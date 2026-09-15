@@ -10,6 +10,7 @@
 import type { GuardVerdict, ResolutionProposal } from "../types.js";
 import { getBrain } from "../brain.js";
 import { emitEvent } from "../events.js";
+import { getPolicy } from "../policy-config.js";
 
 // Auto-approve ceilings in MINOR UNITS, per currency.
 //
@@ -18,12 +19,9 @@ import { emitEvent } from "../events.js";
 // real ceiling roughly a hundredfold without changing a line of config. The
 // ceiling is a money decision, so it has to be denominated.
 //
-// Override per currency with AUTO_REFUND_LIMIT_<CCY> (e.g. AUTO_REFUND_LIMIT_USD).
-const FALLBACK_LIMITS: Record<string, number> = {
-  INR: 500_000, // ₹5,000
-  USD: 5_000, //   $50
-};
-
+// Source of truth is config/policy.json (policy-as-config) — a merchant edits
+// that file, not this one. Override per currency with AUTO_REFUND_LIMIT_<CCY>
+// (e.g. AUTO_REFUND_LIMIT_USD) for an ops-level demo/incident escape hatch.
 /**
  * The ceiling for a currency, or undefined when we have no ruling for it.
  *
@@ -37,14 +35,16 @@ function limitFor(currency: string | undefined): number | undefined {
   const configured =
     process.env[`AUTO_REFUND_LIMIT_${ccy}`] ??
     (ccy === "INR" ? process.env.AUTO_REFUND_LIMIT : undefined) ??
-    FALLBACK_LIMITS[ccy];
+    getPolicy().currencies[ccy]?.auto_approve_limit;
   if (configured === undefined) return undefined;
   const limit = Number(configured);
   return Number.isFinite(limit) ? limit : undefined;
 }
 
 // Store-wide return window; a product can override it via return_window_days.
-const RETURN_WINDOW_DAYS = Number(process.env.RETURN_WINDOW_DAYS ?? 14);
+// Source of truth is config/policy.json; RETURN_WINDOW_DAYS env var still wins
+// when set.
+const RETURN_WINDOW_DAYS = Number(process.env.RETURN_WINDOW_DAYS ?? getPolicy().return_window_days);
 
 /**
  * Is a physical parcel still owed to us on this order?

@@ -1,0 +1,20 @@
+{
+  "_readme": "This file IS the policy. Resolve's guard reads its autonomy limits from here — a merchant changes what the agent is allowed to do without touching or redeploying any code. Env vars (AUTO_REFUND_LIMIT_<CCY>, RETURN_WINDOW_DAYS, ESCALATION_FOLLOWUP_MINUTES) still win when set, for ops-level overrides during a demo or incident; this file is the source of truth everyone else sees.",
+
+  "currencies": {
+    "INR": {
+      "auto_approve_limit": 500000,
+      "_note": "500000 minor units = ₹5,000. Anything over this is a hard deny → escalated to a human, never approved by the brain."
+    },
+    "USD": {
+      "auto_approve_limit": 5000,
+      "_note": "5000 minor units = $50."
+    }
+  },
+
+  "return_window_days": 14,
+  "_return_window_note": "A physical, returnable item delivered longer ago than this without a completed return is a hard deny (return_window_expired), not a hold.",
+
+  "escalation_followup_minutes": 60,
+  "_escalation_note": "How long the escalation agent waits before checking back on a ticket it raised and pinging the assignee if it's still open. Demo runs override this to a couple of minutes via ESCALATION_FOLLOWUP_MINUTES so a judge doesn't wait an hour to see the follow-up fire."
+}
