@@ -133,14 +133,29 @@ export async function lookupContext(
   // side of the gate, and it cannot fire anyway without a payment to refund.
   const returnStatus = classifyReturn(itemType, order?.returnable ?? true, rma);
 
-  const complete = Boolean(order?.payment_id && Number.isFinite(order?.amount_minor));
+  // "Complete" means the fact this claim type actually needs is present — a
+  // payment to refund, or a subscription+target plan to change. Checking
+  // payment_id alone would wrongly under-score every valid plan_change case.
+  const complete = Boolean(
+    (order?.payment_id || (order?.subscription_id && order?.requested_product_id)) &&
+      Number.isFinite(order?.amount_minor),
+  );
   const facts: CaseFacts = {
     ticket_id: String(ticket.id),
     order_id: orderId ?? "unknown",
     amount: order?.amount_minor ?? 0,
     currency: order?.currency ?? "INR",
     payment_id: order?.payment_id,
-    claim_type: /refund/i.test(ticket.subject) ? "refund" : "other",
+    subscription_id: order?.subscription_id,
+    requested_product_id: order?.requested_product_id,
+    // Structured signal first (order.requested_product_id — the order record
+    // the customer cannot write to), same principle as payment_id: never
+    // decide what the guard judges from ticket prose alone.
+    claim_type: order?.requested_product_id
+      ? "plan_change"
+      : /refund/i.test(ticket.subject)
+        ? "refund"
+        : "other",
     item_type: itemType,
     return_status: returnStatus,
     delivered_at: order?.delivered_at,

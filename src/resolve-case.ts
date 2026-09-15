@@ -12,7 +12,7 @@
 import type { CaseFacts, GuardVerdict, ResolutionProposal } from "./types.js";
 import { proposeResolution } from "./agents/resolution.js";
 import { guardCheck, type GuardContext } from "./agents/policy-guard.js";
-import { getPayments, type RefundResult } from "./payments.js";
+import { getPayments, type PlanChangeResult, type RefundResult } from "./payments.js";
 import { getHelpdesk } from "./helpdesk.js";
 import { escalateCase } from "./agents/escalation.js";
 import { requestReturn, withLiveReturnStatus, type ReturnRequestResult } from "./returns.js";
@@ -44,6 +44,7 @@ export interface ResolveCaseResult {
   proposal?: ResolutionProposal;
   verdict?: GuardVerdict;
   refund?: RefundResult;
+  plan_change?: PlanChangeResult;
   /** Set when the guard held the refund pending a physical return. */
   return_request?: ReturnRequestResult;
   prior_result?: unknown;
@@ -58,14 +59,16 @@ export async function resolveCase(
   // The parcel may have arrived since the context was looked up, so the return
   // status is re-read from the RMA store here rather than trusted from a cached
   // snapshot. Everything downstream decides on these facts.
-  const facts = withLiveReturnStatus(snapshot);
+  let facts = withLiveReturnStatus(snapshot);
 
   emitEvent("case.received", `Case ${facts.ticket_id}: ${facts.claim_type} claim on order ${facts.order_id}`, {
     amount: facts.amount,
     currency: facts.currency,
   });
 
-  // Idempotency gate — one action per ticket, ever.
+  // Idempotency gate — one action per ticket, ever. Checked BEFORE the
+  // plan_change live-preview call below: an already-done or already-in-flight
+  // ticket should never spend an extra Dodo API call just to be told no.
   const existing = getAction(facts.ticket_id);
   if (existing?.state === "done") {
     emitEvent("case.idempotent", `Ticket ${facts.ticket_id} already actioned — returning prior result`);
@@ -83,6 +86,34 @@ export async function resolveCase(
       outcome: "in_flight_blocked",
       note: `A previous action started at ${existing.started_at} and never finished. Blocked for manual review.`,
     };
+  }
+
+  // For plan_change, the guard must approve the REAL prorated charge, not
+  // whatever amount the ticket/conversation carried in — that number is
+  // unknowable until Dodo computes proration against the live subscription
+  // state (Sept 14 spike, Q1). Overlaying it here (a fresh object —
+  // withLiveReturnStatus can return the same reference, and snapshot must
+  // never be mutated under the caller) means the guard, the audit log, and
+  // the executed charge all agree on the same source of truth instead of
+  // three different numbers. Runs after the idempotency gate so an
+  // already-done or in-flight ticket never spends a Dodo call to be told no.
+  if (facts.claim_type === "plan_change" && facts.subscription_id && facts.requested_product_id) {
+    try {
+      const preview = await getPayments().previewPlanChange(
+        facts.subscription_id,
+        facts.requested_product_id,
+      );
+      facts = { ...facts, amount: preview.amount, currency: preview.currency };
+      emitEvent(
+        "case.plan_change_previewed",
+        `Live prorated charge for ${facts.ticket_id}: ${preview.amount} ${preview.currency}`,
+      );
+    } catch (err) {
+      emitEvent(
+        "case.warn",
+        `Plan-change preview failed (guard will see the pre-computed amount, not live): ${(err as Error).message}`,
+      );
+    }
   }
 
   const proposal = await proposeResolution(facts);
@@ -144,13 +175,82 @@ export async function resolveCase(
     };
   }
 
+  if (proposal.action === "plan_change") {
+    // Approved plan change — record first, then fire the money call. Same
+    // idempotency contract as refund (top-of-function gate): a crash between
+    // these two lines shows up as "in_flight" on the next attempt and gets
+    // refused, not silently retried. This is the actual fix for the double-fire
+    // risk found in the Sept 14 spike — Dodo itself does NOT dedupe changePlan
+    // calls (verified: firing the same call twice created two separate
+    // succeeded payments), so this ticket-level gate is the only thing
+    // standing between a flaky retry and a second real charge.
+    beginAction(facts.ticket_id, "plan_change");
+    emitEvent("action.begin", `Plan change authorized for ${facts.ticket_id} — firing Dodo`, {
+      subscription_id: facts.subscription_id,
+      requested_product_id: facts.requested_product_id,
+    });
+
+    const planChange = await getPayments().changePlan(
+      facts.subscription_id!,
+      facts.requested_product_id!,
+    );
+    completeAction(facts.ticket_id, planChange);
+    emitEvent(
+      "money.plan_change",
+      `Subscription ${planChange.subscription_id} → ${planChange.new_product_id}, charged ${planChange.charged_amount} ${planChange.currency}`,
+      { ...planChange },
+    );
+
+    const helpdesk = getHelpdesk();
+    const ticketNumber = Number(facts.ticket_id);
+    if (helpdesk.configured() && Number.isFinite(ticketNumber)) {
+      try {
+        await helpdesk.addNote(
+          ticketNumber,
+          `<p><b>Resolve — automated resolution</b></p>
+           <p>Guard verdict: <b>APPROVED</b> — ${verdict.reason}<br>
+           Plan change: subscription <b>${planChange.subscription_id}</b> → <b>${planChange.new_product_id}</b><br>
+           Charged: ${(planChange.charged_amount / 100).toFixed(2)} ${planChange.currency}<br>
+           Proposal: ${proposal.summary}</p>`,
+        );
+        emitEvent("freshdesk.note_added", `Resolution note added to ticket #${ticketNumber}`);
+      } catch (err) {
+        emitEvent("case.warn", `Freshdesk note failed (plan change unaffected): ${(err as Error).message}`);
+      }
+      try {
+        await helpdesk.updateTicket(ticketNumber, { status: 4 }); // 4 = resolved
+        emitEvent("freshdesk.ticket_resolved", `Ticket #${ticketNumber} marked resolved`);
+      } catch (err) {
+        emitEvent("case.warn", `Freshdesk status update failed (plan change unaffected): ${(err as Error).message}`);
+      }
+    } else {
+      emitEvent("freshdesk.skipped", "Freshdesk not configured or non-numeric ticket id — note skipped");
+    }
+
+    // Customer confirmation email intentionally NOT sent here yet: notify.ts's
+    // sendResolutionEmail is refund-shaped (subject line, refund_id/status
+    // fields) — needs generalizing before plan_change gets the same "in
+    // writing" guarantee refund has. Scope kept to the executor + the
+    // idempotency fix this pass; the Freshdesk note is the audit trail either way.
+
+    emitEvent("case.resolved", `Case ${facts.ticket_id} resolved — plan change to ${planChange.new_product_id}`);
+    return {
+      ticket_id: facts.ticket_id,
+      outcome: "resolved",
+      proposal,
+      verdict,
+      plan_change: planChange,
+      note: `Plan changed to ${planChange.new_product_id}, charged ${(planChange.charged_amount / 100).toFixed(2)} ${planChange.currency} — confirmed from Dodo's response.`,
+    };
+  }
+
   if (proposal.action !== "refund") {
     return {
       ticket_id: facts.ticket_id,
       outcome: "unsupported",
       proposal,
       verdict,
-      note: `Action '${proposal.action}' approved but not executable yet (refunds only in Step 4).`,
+      note: `Action '${proposal.action}' approved but not executable yet.`,
     };
   }
 

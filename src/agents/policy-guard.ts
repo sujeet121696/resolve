@@ -104,6 +104,12 @@ export async function guardCheck(
   if (action === "refund" && !facts.payment_id) {
     return hardDeny("no_payment", "refund proposed but no payment is linked to the order");
   }
+  if (action === "plan_change" && (!facts.subscription_id || !facts.requested_product_id)) {
+    return hardDeny(
+      "no_subscription",
+      "plan_change proposed but no subscription/target plan is linked to the order",
+    );
+  }
   // Returnable goods: the parcel comes back before the money goes out. Last of
   // the hard checks on purpose — a returnable item that ALSO breaches the limit
   // is a human's call, not a pickup request. resolve-case routes this one denial
