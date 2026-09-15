@@ -9,6 +9,7 @@ import { attemptsLeft, attemptsPhrase, isVerified, sendOtp, verifyOtp } from "./
 import { resolveCase } from "./resolve-case.js";
 import { markReturnReceived } from "./returns.js";
 import { handleChatMessage } from "./chat.js";
+import { voiceResolvedMessage } from "./resolution-messages.js";
 import type { CaseFacts } from "./types.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -193,7 +194,7 @@ tools.post("/resolve-case", async (req, res) => {
       { notify_email: ctx.email, amount_narrated: ctx.amount_narrated },
     );
     const messages: Record<string, string> = {
-      resolved: `Refund approved and processed. Amount ${ctx.amount_narrated} will return to the original payment method in 5 to 7 business days. Reference ${result.refund?.refund_id ?? ""}.`,
+      resolved: voiceResolvedMessage(result, ctx.amount_narrated),
       denied: `This request cannot be approved automatically (${result.verdict?.hard_check_failed ?? "policy"}). It is being escalated to a human specialist who will follow up on the ticket.`,
       return_requested: result.return_request?.message ?? result.note,
       already_resolved: "This order was already refunded earlier - no second refund was made. The original refund stands.",

@@ -12,6 +12,7 @@ import { getContextFor, lookupContext } from "./case-context.js";
 import { attemptsLeft, attemptsPhrase, isVerified, sendOtp, verifyOtp } from "./otp.js";
 import { resolveCase } from "./resolve-case.js";
 import { emitEvent } from "./events.js";
+import { chatResolvedMessage } from "./resolution-messages.js";
 
 type ChatState = "await_email" | "await_case_confirm" | "await_otp" | "await_action_confirm" | "done" | "locked";
 
@@ -105,7 +106,7 @@ export async function handleChatMessage(sessionId: string, text: string): Promis
   sessions.set(sessionId, result.outcome === "return_requested" ? "await_action_confirm" : "done");
   // Mirrors the voice tool's outcome → spoken-message map in server.ts.
   const messages: Record<string, string> = {
-    resolved: `Done! Refund approved and processed — ${ctx.amount_narrated} will return to your original payment method in 5 to 7 business days. Reference: ${result.refund?.refund_id ?? ""}.`,
+    resolved: chatResolvedMessage(result, ctx.amount_narrated),
     denied: "This request can't be approved automatically. I've escalated it to a human specialist with the full case briefing — the ticket is marked urgent and you'll hear back soon.",
     return_requested: result.return_request?.message ?? result.note,
     already_resolved: "This order was already refunded earlier — no second refund was made. The original refund stands.",

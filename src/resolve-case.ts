@@ -227,11 +227,24 @@ export async function resolveCase(
       emitEvent("freshdesk.skipped", "Freshdesk not configured or non-numeric ticket id — note skipped");
     }
 
-    // Customer confirmation email intentionally NOT sent here yet: notify.ts's
-    // sendResolutionEmail is refund-shaped (subject line, refund_id/status
-    // fields) — needs generalizing before plan_change gets the same "in
-    // writing" guarantee refund has. Scope kept to the executor + the
-    // idempotency fix this pass; the Freshdesk note is the audit trail either way.
+    // Customer confirmation in writing — same contract as refund: best-effort,
+    // the change has already applied, so a mail failure is a warning only.
+    if (opts.notify_email) {
+      await sendResolutionEmail({
+        kind: "plan_change",
+        to: opts.notify_email,
+        ticket_id: facts.ticket_id,
+        order_id: facts.order_id,
+        new_product_id: planChange.new_product_id,
+        charged_narrated:
+          planChange.charged_amount > 0
+            ? `${(planChange.charged_amount / 100).toFixed(2)} ${planChange.currency}`
+            : `${(0).toFixed(2)} ${planChange.currency} (nothing charged today)`,
+        subscription_id: planChange.subscription_id,
+      });
+    } else {
+      emitEvent("notify.skipped", "No customer address for this case — confirmation email skipped");
+    }
 
     emitEvent("case.resolved", `Case ${facts.ticket_id} resolved — plan change to ${planChange.new_product_id}`);
     return {
@@ -303,6 +316,7 @@ export async function resolveCase(
   // already done, so sendResolutionEmail swallows its own failures.
   if (opts.notify_email) {
     await sendResolutionEmail({
+      kind: "refund",
       to: opts.notify_email,
       ticket_id: facts.ticket_id,
       order_id: facts.order_id,
