@@ -69,8 +69,3 @@ function loadPolicy(): Policy {
       : DEFAULT_POLICY.escalation_followup_minutes,
   };
 }
-
-/** Test-only: force the next getPolicy() call to re-read the file from disk. */
-export function _resetPolicyCache(): void {
-  cached = null;
-}

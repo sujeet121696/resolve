@@ -17,7 +17,7 @@ process.env.BRAIN = "mock";
 const { guardCheck } = await import("../agents/policy-guard.js");
 import type { CaseFacts, ResolutionProposal } from "../types.js";
 
-const AUTO_LIMIT_INR = 500_000; // ₹5,000, policy-guard.ts's FALLBACK_LIMITS
+const AUTO_LIMIT_INR = 500_000; // ₹5,000 — config/policy.json's default INR auto_approve_limit
 
 function baseFacts(overrides: Partial<CaseFacts> = {}): CaseFacts {
   return {

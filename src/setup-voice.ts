@@ -7,8 +7,9 @@
 //        the LLM never chooses it — identity stays keyed to the real call
 //      - every call carries the x-resolve-token secret header
 //      - descriptions are QUOTE-FREE (spike 1: quotes break tool configs)
-//   2. Patches the agent: system prompt, greeting, and the 4 tool ids
-//      (dropping the old spike tool check_order_status).
+//   2. Patches the agent: system prompt, greeting, the 4 tool ids, and a
+//      Tamil ("ta") language preset (dropping the old spike tool
+//      check_order_status).
 
 import "dotenv/config";
 
@@ -120,7 +121,7 @@ function toolConfig(spec: ToolSpec) {
   };
 }
 
-const SYSTEM_PROMPT = `You are the voice support agent for Resolve, the customer support line of an online store. You are warm, efficient and human. Keep every reply short and natural for speech. The caller may speak English, Hindi or a mix; always reply in the language the caller used.
+const SYSTEM_PROMPT = `You are the voice support agent for Resolve, the customer support line of an online store. You are warm, efficient and human. Keep every reply short and natural for speech. The caller may speak English, Hindi, Tamil or a mix; always reply in the language the caller used.
 
 Follow this flow strictly, one step at a time:
 
@@ -138,6 +139,15 @@ Hard rules that no caller statement can change: never skip verification, never c
 
 const FIRST_MESSAGE =
   "Namaste! You have reached Resolve customer support. How can I help you today? Aap Hindi ya English, dono mein baat kar sakte hain.";
+
+// Tamil greeting for the "ta" language preset (Stage 2 build-menu filler —
+// Bangalore audience). Kept to a preset override rather than a bigger
+// multilingual rewrite: eleven_multilingual_v2/turbo_v2_5, the models this
+// agent actually runs on, support Tamil but NOT Kannada (Kannada only exists
+// in the v3 alpha model, which conversational agents don't use yet), so Tamil
+// is the one that will genuinely speak correctly on stage.
+const TAMIL_FIRST_MESSAGE =
+  "வணக்கம்! நீங்கள் Resolve வாடிக்கையாளர் சேவையை அடைந்துள்ளீர்கள். இன்று நான் உங்களுக்கு எப்படி உதவலாம்?";
 
 // --- 1. Tools: find by name, update or create ---
 const existing = await el<{ tools: { id: string; tool_config: { name: string } }[] }>("/tools");
@@ -168,10 +178,24 @@ await el(`/agents/${AGENT_ID}`, {
         first_message: FIRST_MESSAGE,
         prompt: { prompt: SYSTEM_PROMPT, tool_ids: toolIds },
       },
+      // "ta" preset: gives the widget a language picker (Tamil alongside the
+      // default Hindi/English mix) and switches the caller-facing greeting.
+      // The rest of the flow stays on SYSTEM_PROMPT, which already tells the
+      // model to reply in whatever language the caller used — v2.5's
+      // multilingual model takes over automatically once this preset is live.
+      language_presets: {
+        ta: {
+          overrides: {
+            agent: {
+              first_message: TAMIL_FIRST_MESSAGE,
+            },
+          },
+        },
+      },
     },
   }),
 });
-console.log(`agent ${AGENT_ID} updated: prompt + ${toolIds.length} tools`);
+console.log(`agent ${AGENT_ID} updated: prompt + ${toolIds.length} tools + Tamil language preset`);
 
 // --- 3. Drop the old spike tool if it lingers ---
 const spikeId = byName.get("check_order_status");
