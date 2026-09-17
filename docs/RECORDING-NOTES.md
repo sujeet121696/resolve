@@ -78,9 +78,9 @@ Platforms truncate, and a cut-off ending reads as carelessness.
 
 | Time | On screen |
 |---|---|
-| **0:00–0:10** | The call already in progress, Ravi in Hindi. **Real call audio, no voice-over** — let it breathe |
+| **0:00–0:10** | The call already in progress, Sujeet in Hindi. **Real call audio, no voice-over** — let it breathe |
 | 0:10–0:19 | Ops view: `case.received`, context arriving from Freshdesk |
-| 0:19–0:33 | Split: agent asking for the code · Gmail · Ravi reading digits aloud |
+| 0:19–0:33 | Split: agent asking for the code · Gmail · Sujeet reading digits aloud |
 | 0:33–0:43 | Ops view: `agent.resolution.proposed` → `guard.approved`, timing visible |
 | **0:43–0:54** | **Dodo dashboard refreshing — the refund appears.** Then `case.resolved` |
 | 0:54–1:02 | Freshdesk private note, then the Gmail confirmation with the reference |

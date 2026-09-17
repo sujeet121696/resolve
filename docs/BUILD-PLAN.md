@@ -12,11 +12,11 @@
 | 0 | Keys in hand | Anthropic $5 top-up · Dodo key (rotated ✅ Aug 21) · Freshdesk free account · ngrok (✅ Aug 21) | 🔄 partial |
 | 1 | Scaffold that boots | nothing external | ✅ Aug 21 |
 | 2 | Integrations + seed data | Freshdesk + Dodo keys | ✅ Aug 21 — Spike 3 passed; tickets #4/#5 + 6 succeeded payments seeded |
-| 3 | The brain, offline ⚠️ | free LLM key (Groq) | ✅ Aug 21 — Groq gpt-oss-120b: 20/20 correct (Ravi 10× approve, Priya 10× deny), **p50 1.6 s / p95 3.1 s** for propose+judge — far under the 6–7 s redesign line. BRAIN=auto = groq primary + gemini fallback (Gemini free tier: 20 req/day, 2–13 s — fallback only) |
+| 3 | The brain, offline ⚠️ | free LLM key (Groq) | ✅ Aug 21 — Groq gpt-oss-120b: 20/20 correct (Sujeet 10× approve, Priya 10× deny), **p50 1.6 s / p95 3.1 s** for propose+judge — far under the 6–7 s redesign line. BRAIN=auto = groq primary + gemini fallback (Gemini free tier: 20 req/day, 2–13 s — fallback only) |
 | 4 | Action + close (no voice) | steps 2–3 | ✅ Aug 21 on mock brain — refund + ticket note + idempotency proven end to end; re-verify once Step 3's real brain lands |
 | 5 | OTP beat | free SMTP (email) | ✅ Aug 21 — real email delivered via Gmail SMTP + verified; lockout, refusal, verified gate all proven |
 | 6 | Voice wiring | ElevenLabs key + ngrok | ✅ Aug 21 — live call passed: email capture (with self-recovery), OTP verify via real conversation id, idempotent resolve spoken back |
-| 7 | Ravi end to end | steps 1–6 | ✅ **fully closed Aug 22** — voice call on the REAL groq brain passed (ticket #10 ORD-1007, refund ref_0Nlvvn66OJDUKrXu62myo, resolve beat 4.8 s, propose 336/44 + judge 391/97 tokens). Earlier: mock-brain voice call + 3× groq consistency repeats via chat/tools (#7/#8/#9, beats 4.9/4.7/5.3 s). No leftovers |
+| 7 | Sujeet end to end | steps 1–6 | ✅ **fully closed Aug 22** — voice call on the REAL groq brain passed (ticket #10 ORD-1007, refund ref_0Nlvvn66OJDUKrXu62myo, resolve beat 4.8 s, propose 336/44 + judge 391/97 tokens). Earlier: mock-brain voice call + 3× groq consistency repeats via chat/tools (#7/#8/#9, beats 4.9/4.7/5.3 s). No leftovers |
 | 8 | Priya + chat channel | step 7 | ✅ Aug 21 — Priya via chat: OTP → guard denied (auto_limit) → ticket #5 urgent + briefing + follow-up fired at +2 min |
 | 9 | Hardening + numbers | step 8 | 🔄 Aug 22 — injection tests PASSED (3 attacks, all denied) · audit log live (`npm run audit`) · token metering in · **happy-path numbers measured on live voice: 727 in / 141 out, 4.8 s beat**. Left: ElevenLabs per-minute cost + price env vars + backup videos |
 
@@ -41,17 +41,17 @@ number is bad, the architecture gets fixed while it's still cheap to change.
 
 ## Step 2 — Integrations + seed data (~2 hrs)
 
-- **Do:** `freshdesk.ts` and `dodo.ts` wrappers, then `npm run seed` — creates Ravi (₹1,499 case), Priya (₹18,999 case), one generic customer, their Freshdesk tickets, and **several** USD test payments in Dodo (test-mode fees drain the wallet; several payments keep full refunds clearing).
+- **Do:** `freshdesk.ts` and `dodo.ts` wrappers, then `npm run seed` — creates Sujeet (₹1,499 case), Priya (₹18,999 case), one generic customer, their Freshdesk tickets, and **several** USD test payments in Dodo (test-mode fees drain the wallet; several payments keep full refunds clearing).
 - **Needs:** Freshdesk API key, Dodo test key. Absorbs Spike 3 — the two Freshdesk curls are this step's first test.
 - **You get:** Real demo data visible in both dashboards.
-- **Test:** Freshdesk shows Ravi's ticket with order details; Dodo shows the payments in test mode.
+- **Test:** Freshdesk shows Sujeet's ticket with order details; Dodo shows the payments in test mode.
 
 ## Step 3 — The brain, offline (~3 hrs) ⚠️ the critical step
 
 - **Do:** Resolution agent + Policy-Guard in code, fed hand-typed structured facts — **no voice involved**. Guard = hard checks first (auto-limit, idempotency, verified flag), then the Claude judgment call. Guard input is structured fields only, never transcript (DESIGN.md decision 4).
 - **Needs:** Anthropic key.
 - **You get:** The decision core working, and the **beat-4 latency number** — the flow's biggest unknown, measured on day one of coding instead of discovered during a live call.
-- **Test:** Ravi's facts → APPROVE; Priya's facts → DENY (over limit + low confidence). Run each 10×, record p50/p95 latency. If >6–7 s → redesign now (parallel calls / smaller model) while it's cheap.
+- **Test:** Sujeet's facts → APPROVE; Priya's facts → DENY (over limit + low confidence). Run each 10×, record p50/p95 latency. If >6–7 s → redesign now (parallel calls / smaller model) while it's cheap.
 
 ## Step 4 — Action + close, still no voice (~2 hrs)
 
@@ -74,7 +74,7 @@ number is bad, the architecture gets fixed while it's still cheap to change.
 - **You get:** A voice agent that calls **our** server.
 - **Test:** Live call: speak a request → tool call appears in our log → agent speaks the returned data. Stopwatch the webhook roundtrip (unknown #2 in DESIGN.md).
 
-## Step 7 — Ravi end to end (~2 hrs + iteration)
+## Step 7 — Sujeet end to end (~2 hrs + iteration)
 
 - **Do:** Wire the full happy path through a live voice call. Mostly integration debugging, not new code.
 - **You get:** **The demo** — the 90-second call: greeting → OTP → refund fires mid-call → confirmation spoken only from Dodo's returned state.

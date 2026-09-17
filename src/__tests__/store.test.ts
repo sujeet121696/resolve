@@ -3,7 +3,7 @@
 // store.ts is file-backed against the REAL data/actions.json (no test-mode
 // override exists), so every test below uses a ticket id namespaced under
 // "test-store-" and deletes exactly those keys afterward — real demo tickets
-// (Ravi, Priya, Meera) are never touched.
+// (Sujeet, Priya, Meera) are never touched.
 //
 // This is the mechanism the Sept 14 Dodo spike proved is load-bearing: Dodo
 // itself does NOT dedupe a repeated changePlan/refund call, so this file is

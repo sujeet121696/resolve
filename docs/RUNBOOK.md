@@ -87,7 +87,7 @@ API calls to :3000).
 npm run seed
 ```
 
-Creates (idempotently): 2 Dodo products, 3 customers (Ravi, Priya, Arjun),
+Creates (idempotently): 2 Dodo products, 3 customers (Sujeet, Priya, Arjun),
 Freshdesk tickets, and **checkout links** for any missing payments.
 
 **Pay each printed link manually** — card `4242 4242 4242 4242`, any future
@@ -143,7 +143,7 @@ needed. Requires the agent to allow unauthenticated widget calls
 2. Type the email (`sujeet6623@gmail.com` or `priya@example.com`).
 3. `yes` to confirm the case → OTP lands in `OTP_DEMO_REDIRECT_TO` → type the
    6 digits → `yes` to proceed.
-4. Ravi → refund + reference; Priya → denial + urgent escalation, and a
+4. Sujeet → refund + reference; Priya → denial + urgent escalation, and a
    follow-up note fires on ticket after `ESCALATION_FOLLOWUP_MINUTES` (2 in
    demo config — don't restart the server in that window, the timer is
    in-process).
@@ -161,7 +161,7 @@ npm run seed:repeat                  # return take: nothing returned yet → RMA
 npm run seed:repeat -- --expired     # policy take: delivered 40 days ago → human
 ```
 
-Mints ONE fresh Ravi ticket (next ORD number) bound to his newest un-refunded
+Mints ONE fresh Sujeet ticket (next ORD number) bound to his newest un-refunded
 payment. Errors out if he has no unspent payment — pay a checkout link first
 (section 3). Then just make the call again (section 5).
 
@@ -322,7 +322,7 @@ ref_0Nm04yFZaggQ6vTgCV2lY, idempotent on re-fire) and via the WEB CHAT at /app
 (ticket #23, refund ref_0Nm062EU5pfx2dFlWLGz2). Each run SPENDS the payment in
 #1001's Note — per repeat: edit the Note to a fresh FREE payment id
 (`npx tsx tmp-dodo-list.ts`), then mint a ticket with `npx tsx tmp-shopify-e2e.ts`
-(creates a Ravi ticket for ORD-1001 + pre-marks the return received).
+(creates a Sujeet ticket for ORD-1001 + pre-marks the return received).
 
 Per-order recipe (repeat for every order the demo should find):
 

@@ -43,7 +43,7 @@ Resolve is an **agentic loop that owns the last mile**:
 
 📹 **Video walkthrough:** https://youtu.be/SwnDqiQuOmo
 
-**Call #1 — the happy path:** Ravi's order arrived broken. He calls, speaks Hindi. Resolve identifies him, verifies the issue against his order, issues a ₹1,499 refund through Dodo live on screen, updates the Freshdesk ticket, and confirms — in 90 seconds.
+**Call #1 — the happy path:** Sujeet's order arrived broken. They call, speak Hindi. Resolve identifies them, verifies the issue against their order, issues a ₹1,499 refund through Dodo live on screen, updates the Freshdesk ticket, and confirms — in 90 seconds.
 
 **Call #2 — the agent that knows its limits:** An ambiguous, high-value claim. Resolve detects low confidence, declines to act autonomously, escalates to a human with a structured briefing, and books its own follow-up call. *This is the difference between an agent and a script.*
 
