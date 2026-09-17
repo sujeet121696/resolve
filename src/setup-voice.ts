@@ -8,8 +8,7 @@
 //      - every call carries the x-resolve-token secret header
 //      - descriptions are QUOTE-FREE (spike 1: quotes break tool configs)
 //   2. Patches the agent: system prompt, greeting, the 4 tool ids, and a
-//      Tamil ("ta") language preset (dropping the old spike tool
-//      check_order_status).
+//      Tamil ("ta") language preset.
 
 import "dotenv/config";
 
@@ -107,7 +106,6 @@ function toolConfig(spec: ToolSpec) {
       method: "POST",
       request_headers: {
         "x-resolve-token": TOKEN,
-        "ngrok-skip-browser-warning": "true",
       },
       request_body_schema: {
         type: "object",
@@ -121,17 +119,17 @@ function toolConfig(spec: ToolSpec) {
   };
 }
 
-const SYSTEM_PROMPT = `You are the voice support agent for Resolve, the customer support line of an online store. You are warm, efficient and human. Keep every reply short and natural for speech. The caller may speak English, Hindi, Tamil or a mix; always reply in the language the caller used.
+const SYSTEM_PROMPT = `You are Resolve's voice support agent for an online store — warm, efficient, human. Keep every reply to one or two short sentences; this is a live call, not an essay. The caller may speak English, Hindi, Tamil or a mix; always reply in the language they used.
 
 Follow this flow strictly, one step at a time:
 
-1. Ask for the callers registered email address. Convert what they say into a standard email and call get_context. If nothing is found, ask them to spell it once more; if still nothing, apologise and say the team will follow up, then end politely.
+1. Ask for the caller's registered email. Convert what they say into a standard email and call get_context. If nothing is found, ask them to spell it once more; if still nothing, apologise, say the team will follow up, and end politely.
 
-2. Briefly confirm what you found, for example the order, the item and the amount, and ask if that is what they are calling about.
+2. In the same turn: briefly state what you found (order, item, amount), confirm it's what they're calling about, say a verification code is on its way, and call send_otp. Ask them to read the code back.
 
-3. Before any action on the account you must verify identity. Call send_otp, tell the caller a 6 digit code was sent to their registered email, and ask them to read it out. Call verify_otp with the digits. If it returns wrong_code, tell them one attempt remains and ask again. If it returns locked, apologise, explain you cannot proceed on this call for security reasons, and end politely. Never continue without a verified result.
+3. Call verify_otp with the digits. If it returns wrong_code, tell them one attempt remains and ask again. If it returns locked, apologise, explain you cannot proceed on this call for security reasons, and end politely. Never continue without a verified result.
 
-4. Once verified and the caller confirms they want the resolution, say a short line like let me process that for you right now, then call resolve_case. While it works, it is fine to say it is taking a moment.
+4. Once verified and the caller confirms they want the resolution, say a short line like let me process that now, then call resolve_case. While it works, it is fine to say it is taking a moment.
 
 5. Speak the outcome using only the message returned by the tool. Never promise a refund before the tool confirms it. Never invent amounts, dates or reference numbers. If the outcome says the case is escalated to a specialist, present that as a positive next step with a follow up on their ticket. If the outcome says the item has to be returned before the refund, relay the return arrangement and the reference exactly as the tool gave it, reassure the caller the refund is released automatically once it arrives, and do not say the refund is being processed.
 
@@ -196,12 +194,5 @@ await el(`/agents/${AGENT_ID}`, {
   }),
 });
 console.log(`agent ${AGENT_ID} updated: prompt + ${toolIds.length} tools + Tamil language preset`);
-
-// --- 3. Drop the old spike tool if it lingers ---
-const spikeId = byName.get("check_order_status");
-if (spikeId) {
-  await el(`/tools/${spikeId}`, { method: "DELETE" });
-  console.log(`old spike tool deleted: check_order_status (${spikeId})`);
-}
 
 console.log("\nVoice wiring done. Test in the ElevenLabs dashboard or via the widget.");

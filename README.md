@@ -98,12 +98,16 @@ npm run install:web && npm run build:web        # the React UI (yarn-managed) at
 cp .env.example .env    # fill in the keys — .env.example documents each one
 npm run dev             # orchestrator on :3000 — UI at /app (ops view: /app/ops)
 ngrok http 3000         # public tunnel for the voice agent's webhooks
+                        # (or `cloudflared tunnel run` if you have a domain on
+                        # Cloudflare — same idea, but the URL stays fixed
+                        # across restarts instead of changing every time)
 npm run seed            # demo customers, payments, and Freshdesk tickets
 npm run setup:voice     # configures the ElevenLabs agent + its 4 tools
 ```
 
 Needs Node.js ≥ 20 and free-tier accounts for ElevenLabs, Freshdesk,
-Dodo Payments (test mode), Groq, and ngrok — details in the runbook.
+Dodo Payments (test mode), Groq, and a tunnel (ngrok, or Cloudflare Tunnel if
+you own a domain on Cloudflare) — details in the runbook.
 
 ## Project Structure
 

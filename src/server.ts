@@ -129,7 +129,7 @@ app.post("/dev/resolve-case", async (req, res) => {
 });
 
 // --- Voice tools (Step 6) — the endpoints the ElevenLabs agent calls through
-// ngrok. Guarded by a shared secret header so a leaked tunnel URL is inert.
+// the public tunnel. Guarded by a shared secret header so a leaked tunnel URL is inert.
 // The agent supplies conversation_id from its system__conversation_id dynamic
 // variable; facts and the verified flag live server-side keyed by that id, so
 // nothing said in the call can alter what gets refunded.

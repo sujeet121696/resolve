@@ -3,8 +3,8 @@
 // actually moved, and every attempt that was refused.
 //
 // Deliberately a CLI, not an HTTP endpoint: the trail contains customer emails
-// and payment ids, and the server is exposed through a public ngrok tunnel
-// during demos.
+// and payment ids, and the server is exposed through a public tunnel
+// (Cloudflare Tunnel) during demos.
 
 import "dotenv/config";
 import { readAudit } from "./audit.js";
