@@ -65,7 +65,7 @@ cutting it.
    take >20 s and time out the tool (seen live Aug 25):
    ```bash
    curl -X POST localhost:3000/otp/send -H "Content-Type: application/json" \
-     -d '{"conversation_id":"warmup","email":"ravi.test@example.com"}'
+     -d '{"conversation_id":"warmup","email":"sujeet6623@gmail.com"}'
    ```
    **Then DELETE every old verification-code email** before the take. A locked
    call on Aug 25 came from reading a stale code out of a crowded inbox — during

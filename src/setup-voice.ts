@@ -59,7 +59,7 @@ const TOOL_SPECS: ToolSpec[] = [
       email: {
         type: "string",
         description:
-          "The callers registered email address in standard format, lowercase, no spaces. Convert spoken words: at becomes the at sign, dot becomes a period. Example spoken ravi dot test at example dot com becomes ravi.test@example.com",
+          "The callers registered email address in standard format, lowercase, no spaces. Convert spoken words: at becomes the at sign, dot becomes a period. Example spoken ravi at example dot com becomes ravi@example.com",
       },
     },
     required: ["email"],

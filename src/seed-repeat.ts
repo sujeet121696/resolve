@@ -2,7 +2,7 @@
 //
 // Each live demo call resolves ONE ticket (idempotency is per-ticket), and
 // get_context picks the customer's newest ticket. So every repeat run needs a
-// fresh Ravi ticket bound to a fresh un-refunded payment. This script creates
+// fresh Sujeet ticket bound to a fresh un-refunded payment. This script creates
 // exactly one: next ORD number, newest un-refunded succeeded payment.
 //
 // Flow per repeat: pay a checkout link (4242…) → npm run seed:repeat → call.
@@ -13,8 +13,8 @@ import { createTicket, freshdeskConfigured, listTicketsByEmail } from "./integra
 import { putOrder } from "./integrations/order-store.js";
 import { seedReceivedReturn } from "./returns.js";
 
-const EMAIL = "ravi.test@example.com";
-const NAME = "Ravi Kumar";
+const EMAIL = "sujeet6623@gmail.com";
+const NAME = "Sujeet Singh";
 
 // Earbuds are a physical item, so the guard holds the refund until the parcel is
 // back (policy-guard.ts, awaiting_return). Two flavours of repeat ticket:
@@ -48,7 +48,7 @@ for await (const p of dodo.payments.list({ status: "succeeded", page_size: 100 }
   if (p.customer.email === EMAIL && !p.refund_status) candidates.push(p.payment_id);
 }
 if (candidates.length === 0) {
-  console.error("No un-refunded succeeded payment for Ravi — pay a checkout link first (card 4242 4242 4242 4242).");
+  console.error("No un-refunded succeeded payment for Sujeet — pay a checkout link first (card 4242 4242 4242 4242).");
   process.exit(1);
 }
 const paymentId = candidates[0]!;
@@ -108,4 +108,4 @@ console.log(
       ? `Delivered ${deliveredAt} (40 days ago) — outside the ${RETURN_WINDOW_DAYS}-day window, so a call will ESCALATE TO A HUMAN, not arrange a pickup.`
       : `Delivered ${deliveredAt}, return not requested — a call will ARRANGE THE RETURN, not refund. Use --returned for the refund take.`,
 );
-console.log("Ready for a live call: Ravi's newest ticket now points at a fresh payment.");
+console.log("Ready for a live call: Sujeet's newest ticket now points at a fresh payment.");

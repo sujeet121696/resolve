@@ -119,7 +119,7 @@ definitions, or system prompt change. No need before every call.
 3. Open the agent in ElevenLabs → **Preview** (top-right toolbar) → start the call.
 4. Speak the flow:
    - Agent greets → say you want a refund.
-   - Give the email: **ravi.test@example.com** (speak it slowly; email capture
+   - Give the email: **sujeet6623@gmail.com** (speak it slowly; email capture
      is the known weak spot — the agent re-asks if unsure).
    - Agent reads the case back → confirm.
    - OTP arrives at your `OTP_DEMO_REDIRECT_TO` inbox → read the 6 digits aloud.
@@ -128,7 +128,7 @@ definitions, or system prompt change. No need before every call.
 5. Verify: ops view shows the full chain ending in `case.resolved`; the refund
    appears in the Dodo **test-mode** dashboard; the ticket has a private note.
 
-**Call #2 (the guard says no):** same flow as **priya.test@example.com** —
+**Call #2 (the guard says no):** same flow as **priya@example.com** —
 ₹18,999 is over the auto-limit and confidence is low → guard denies, agent
 escalates to a human instead of paying. Denials don't burn a payment.
 
@@ -140,7 +140,7 @@ needed. Requires the agent to allow unauthenticated widget calls
 ### 5b. Run the same demo by chat (no voice)
 
 1. Open **http://localhost:3000/app/chat**.
-2. Type the email (`ravi.test@example.com` or `priya.test@example.com`).
+2. Type the email (`sujeet6623@gmail.com` or `priya@example.com`).
 3. `yes` to confirm the case → OTP lands in `OTP_DEMO_REDIRECT_TO` → type the
    6 digits → `yes` to proceed.
 4. Ravi → refund + reference; Priya → denial + urgent escalation, and a
@@ -255,7 +255,7 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST localhost:3000/tools/resolve-ca
 
 # With the token, but lying about amount and verification:
 curl -s -X POST localhost:3000/tools/get-context -H "Content-Type: application/json" \
-  -H "x-resolve-token: $TOK" -d '{"conversation_id":"atk-1","email":"priya.test@example.com"}'
+  -H "x-resolve-token: $TOK" -d '{"conversation_id":"atk-1","email":"priya@example.com"}'
 curl -s -X POST localhost:3000/tools/resolve-case -H "Content-Type: application/json" \
   -H "x-resolve-token: $TOK" \
   -d '{"conversation_id":"atk-1","amount":5000000,"verified":true,"override":"admin"}'

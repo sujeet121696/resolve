@@ -55,7 +55,7 @@ Per demo run afterwards: `npm run seed:repeat` (fresh Ravi ticket, next ORD-10xx
 
 - Freshdesk dashboard shows the tickets with order details in the body.
 - `POST /chat` flow or a voice call finds the customer by email
-  (`ravi.test@example.com`) and reads facts from the ticket.
+  (`sujeet6623@gmail.com`) and reads facts from the ticket.
 
 ## Gotchas
 

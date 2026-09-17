@@ -20,7 +20,7 @@ import { dodoClient } from "./integrations/dodo.js";
 import { createTicket, freshdeskConfigured } from "./integrations/freshdesk.js";
 import { putOrder } from "./integrations/order-store.js";
 
-const EMAIL = "meera.test@example.com";
+const EMAIL = "meera@example.com";
 const NAME = "Meera Nair";
 
 const BASIC_NAME = "Resolve Demo — Basic Plan";
