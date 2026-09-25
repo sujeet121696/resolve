@@ -1,21 +1,23 @@
 {
-  "platform-version": "2.3",
-  "product": {
-    "freshdesk": {
+  "platform-version": "3.0",
+  "modules": {
+    "common": {
+      "requests": {
+        "getCaseBrief": {},
+        "markReturnReceived": {}
+      }
+    },
+    "support_ticket": {
       "location": {
         "ticket_sidebar": {
           "url": "index.html",
           "icon": "styles/images/icon.svg"
         }
-      },
-      "requests": {
-        "getCaseBrief": {},
-        "markReturnReceived": {}
       }
     }
   },
   "engines": {
-    "node": "18.20.4",
-    "fdk": "9.8.2"
+    "node": "24.11.0",
+    "fdk": "10.0.1"
   }
 }
