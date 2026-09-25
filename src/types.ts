@@ -10,6 +10,15 @@ export interface CaseFacts {
 
   claim_type: "refund" | "plan_change" | "other";
 
+  /** Dodo subscription behind a plan_change claim — required for that action. */
+  subscription_id?: string;
+  /**
+   * Product id the customer wants to move to. Known ahead of the brain's
+   * decision (same shape as payment_id for refunds) — the ticket/conversation
+   * carries which plan was asked for, the agents only decide whether to grant it.
+   */
+  requested_product_id?: string;
+
   /**
    * Whether there is a parcel in the world at all. Note this is NOT the same as
    * "returnable" — a perishable, an opened hygiene item or a custom-made piece

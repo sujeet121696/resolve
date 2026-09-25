@@ -162,6 +162,24 @@ export async function requestReturn(facts: CaseFacts, amountNarrated?: string): 
       state: existing.state,
       requested_at: existing.requested_at,
     });
+    // No new RMA, but this contact still deserves its own record — a human
+    // reading the ticket should see that the customer called again, not silence.
+    const helpdesk = getHelpdesk();
+    const ticketNumber = Number(facts.ticket_id);
+    if (helpdesk.configured() && Number.isFinite(ticketNumber)) {
+      try {
+        await helpdesk.addNote(
+          ticketNumber,
+          `<p><b>Resolve — customer contacted again (automated)</b></p>
+           <p>Asked about the refund for ${facts.order_id}. Return ${existing.rma} is already
+           <b>${existing.state}</b> since ${existing.requested_at} — no second pickup raised.</p>
+           <p><b>Identity:</b> verified by OTP during this conversation</p>`,
+        );
+        emitEvent("freshdesk.note_added", `Repeat-contact note added to ticket #${ticketNumber}`);
+      } catch (err) {
+        emitEvent("case.warn", `Freshdesk update failed (repeat-contact note): ${(err as Error).message}`);
+      }
+    }
     return {
       rma: existing.rma,
       duplicate: true,

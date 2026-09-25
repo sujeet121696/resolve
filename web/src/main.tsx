@@ -5,6 +5,7 @@ import App from "./App";
 import Home from "./pages/Home";
 import Chat from "./pages/Chat";
 import Ops from "./pages/Ops";
+import Admin from "./pages/Admin";
 import "./styles.css";
 
 createRoot(document.getElementById("root")!).render(
@@ -15,6 +16,7 @@ createRoot(document.getElementById("root")!).render(
           <Route index element={<Home />} />
           <Route path="chat" element={<Chat />} />
           <Route path="ops" element={<Ops />} />
+          <Route path="admin" element={<Admin />} />
         </Route>
       </Routes>
     </BrowserRouter>

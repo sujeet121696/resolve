@@ -43,7 +43,7 @@ Resolve is an **agentic loop that owns the last mile**:
 
 📹 **Video walkthrough:** https://youtu.be/SwnDqiQuOmo
 
-**Call #1 — the happy path:** Ravi's order arrived broken. He calls, speaks Hindi. Resolve identifies him, verifies the issue against his order, issues a ₹1,499 refund through Dodo live on screen, updates the Freshdesk ticket, and confirms — in 90 seconds.
+**Call #1 — the happy path:** Sujeet's order arrived broken. They call, speak Hindi. Resolve identifies them, verifies the issue against their order, issues a ₹1,499 refund through Dodo live on screen, updates the Freshdesk ticket, and confirms — in 90 seconds.
 
 **Call #2 — the agent that knows its limits:** An ambiguous, high-value claim. Resolve detects low confidence, declines to act autonomously, escalates to a human with a structured briefing, and books its own follow-up call. *This is the difference between an agent and a script.*
 
@@ -80,7 +80,7 @@ Resolve is an **agentic loop that owns the last mile**:
 | Helpdesk / system of record | [Freshdesk](https://developers.freshworks.com/) REST API |
 | Payments execution | [Dodo Payments](https://dodopayments.com/) — Node SDK, test mode (their MCP server validated the path during spikes and is used for read-only lookups) |
 | Orchestrator | Node.js (TypeScript) · Express webhooks |
-| Agent reasoning | Pluggable brain (resolution + policy-guard agents) — Groq `gpt-oss-120b` with Gemini fallback for the demo; Claude (Anthropic API) as the production path |
+| Agent reasoning | Pluggable brain (resolution + policy-guard agents) — Claude (Anthropic API, production default since Sept 2026) with Sarvam then Groq as fallback |
 | Ops view (demo screen) | Lightweight web dashboard — live ticket + transaction feed |
 
 ## Getting Started
@@ -98,12 +98,16 @@ npm run install:web && npm run build:web        # the React UI (yarn-managed) at
 cp .env.example .env    # fill in the keys — .env.example documents each one
 npm run dev             # orchestrator on :3000 — UI at /app (ops view: /app/ops)
 ngrok http 3000         # public tunnel for the voice agent's webhooks
+                        # (or `cloudflared tunnel run` if you have a domain on
+                        # Cloudflare — same idea, but the URL stays fixed
+                        # across restarts instead of changing every time)
 npm run seed            # demo customers, payments, and Freshdesk tickets
 npm run setup:voice     # configures the ElevenLabs agent + its 4 tools
 ```
 
 Needs Node.js ≥ 20 and free-tier accounts for ElevenLabs, Freshdesk,
-Dodo Payments (test mode), Groq, and ngrok — details in the runbook.
+Dodo Payments (test mode), Groq, and a tunnel (ngrok, or Cloudflare Tunnel if
+you own a domain on Cloudflare) — details in the runbook.
 
 ## Project Structure
 

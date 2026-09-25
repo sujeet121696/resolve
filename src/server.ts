@@ -9,6 +9,10 @@ import { attemptsLeft, attemptsPhrase, isVerified, sendOtp, verifyOtp } from "./
 import { resolveCase } from "./resolve-case.js";
 import { markReturnReceived } from "./returns.js";
 import { handleChatMessage } from "./chat.js";
+import { voiceFreshdeskRelay } from "./voice-freshdesk-relay.js";
+import { admin } from "./admin.js";
+import { rehydrateFollowUps } from "./agents/escalation.js";
+import { PROVIDER_ERROR_CHAT, PROVIDER_ERROR_VOICE, voiceResolvedMessage } from "./resolution-messages.js";
 import type { CaseFacts } from "./types.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -31,10 +35,22 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true, service: "resolve", ts: new Date().toISOString() });
 });
 
-// Client-safe config for the React app. The agent id is client-visible by
-// design (it ships in the widget's HTML attribute) — expose nothing else here.
+// Client-safe config for the React app. Everything here is client-visible by
+// design — the ElevenLabs agent id ships in the widget's HTML attribute, and the
+// Freshdesk web-widget token/id are the public embed identifiers Freshdesk hands
+// out for a page snippet. NEVER add an API key or the tools token here.
 app.get("/app-config", (_req, res) => {
-  res.json({ elevenLabsAgentId: process.env.ELEVENLABS_AGENT_ID ?? "" });
+  const domain = process.env.FRESHDESK_DOMAIN;
+  const token = process.env.FRESHDESK_WIDGET_TOKEN;
+  const widgetId = process.env.FRESHDESK_WIDGET_ID;
+  res.json({
+    elevenLabsAgentId: process.env.ELEVENLABS_AGENT_ID ?? "",
+    // Empty when not configured, so the UI degrades to the built-in chat.
+    freshdeskWidget:
+      domain && token && widgetId
+        ? { host: `https://${domain}.freshdesk.com`, token, widgetId }
+        : null,
+  });
 });
 
 // SSE stream: replay recent history, then push live events until the tab closes.
@@ -128,7 +144,7 @@ app.post("/dev/resolve-case", async (req, res) => {
 });
 
 // --- Voice tools (Step 6) — the endpoints the ElevenLabs agent calls through
-// ngrok. Guarded by a shared secret header so a leaked tunnel URL is inert.
+// the public tunnel. Guarded by a shared secret header so a leaked tunnel URL is inert.
 // The agent supplies conversation_id from its system__conversation_id dynamic
 // variable; facts and the verified flag live server-side keyed by that id, so
 // nothing said in the call can alter what gets refunded.
@@ -146,7 +162,10 @@ tools.use((req, res, next) => {
 
 tools.post("/get-context", async (req, res) => {
   const { conversation_id, email } = req.body ?? {};
-  if (!conversation_id || !email) return res.status(400).json({ error: "conversation_id and email required" });
+  if (!conversation_id || !email) {
+    emitEvent("tools.invalid_request", `get-context called without ${!conversation_id ? "conversation_id" : "email"}`);
+    return res.status(400).json({ error: "conversation_id and email required" });
+  }
   try {
     res.json(await lookupContext(conversation_id, email));
   } catch (err) {
@@ -154,13 +173,66 @@ tools.post("/get-context", async (req, res) => {
   }
 });
 
+// Combines get-context + send-otp into one call for the native voice agent's
+// first step — two separate tool calls left a seam where the model would
+// speak an interim line between them instead of one natural sentence.
+// Freshdesk AI Agent Studio calls get-context/send-otp directly as its own
+// separate API actions, unaffected by this — this is additive, not a replacement.
+tools.post("/lookup-and-send-otp", async (req, res) => {
+  const { conversation_id, email } = req.body ?? {};
+  if (!conversation_id || !email) {
+    emitEvent("tools.invalid_request", `lookup-and-send-otp called without ${!conversation_id ? "conversation_id" : "email"}`);
+    return res.status(400).json({ error: "conversation_id and email required" });
+  }
+  let context;
+  try {
+    context = await lookupContext(conversation_id, email);
+  } catch (err) {
+    return res.status(500).json({ found: false, sent: false, message: (err as Error).message });
+  }
+  if (!context.found) return res.json({ ...context, sent: false });
+
+  const ctx = getContextFor(conversation_id)!;
+  try {
+    const result = await sendOtp(conversation_id, ctx.email);
+    if (result.blocked) {
+      return res.json({
+        ...context,
+        sent: false,
+        message:
+          result.blocked === "locked"
+            ? "This conversation is locked after too many wrong codes. No new code can be sent - the customer must contact support another way."
+            : "The maximum number of codes has been sent for this conversation. No new code can be sent - the customer must contact support another way.",
+      });
+    }
+    res.json({ ...context, sent: true, message: `${context.message} A verification code has been sent to ${ctx.email}.` });
+  } catch (err) {
+    res.status(500).json({ ...context, sent: false, message: (err as Error).message });
+  }
+});
+
 tools.post("/send-otp", async (req, res) => {
   const { conversation_id } = req.body ?? {};
-  if (!conversation_id) return res.status(400).json({ error: "conversation_id required" });
+  if (!conversation_id) {
+    emitEvent("tools.invalid_request", "send-otp called without conversation_id");
+    return res.status(400).json({ error: "conversation_id required" });
+  }
   const ctx = getContextFor(conversation_id);
-  if (!ctx) return res.json({ sent: false, message: "No case context yet - look up the customer first." });
+  if (!ctx) {
+    emitEvent("otp.no_context", `send-otp called for conversation ${conversation_id} before get-context ran`);
+    return res.json({ sent: false, message: "No case context yet - look up the customer first." });
+  }
   try {
-    await sendOtp(conversation_id, ctx.email);
+    const result = await sendOtp(conversation_id, ctx.email);
+    if (result.blocked) {
+      return res.json({
+        sent: false,
+        message:
+          result.blocked === "locked"
+            ? "This conversation is locked after too many wrong codes. No new code can be sent - the customer must contact support another way."
+            : "The maximum number of codes has been sent for this conversation. No new code can be sent - the customer must contact support another way.",
+      });
+    }
     res.json({ sent: true, message: `Verification code sent to ${ctx.email}.` });
   } catch (err) {
     res.status(500).json({ sent: false, message: (err as Error).message });
@@ -169,7 +241,10 @@ tools.post("/send-otp", async (req, res) => {
 
 tools.post("/verify-otp", (req, res) => {
   const { conversation_id, code } = req.body ?? {};
-  if (!conversation_id || !code) return res.status(400).json({ error: "conversation_id and code required" });
+  if (!conversation_id || !code) {
+    emitEvent("tools.invalid_request", "verify-otp called without conversation_id or code");
+    return res.status(400).json({ error: "conversation_id and code required" });
+  }
   const result = verifyOtp(conversation_id, String(code));
   const messages: Record<string, string> = {
     verified: "Identity verified successfully.",
@@ -178,14 +253,21 @@ tools.post("/verify-otp", (req, res) => {
     expired: "The code expired. Send a fresh one.",
     no_otp: "No code was sent yet for this call.",
   };
+  emitEvent(`otp.${result}`, `Verify OTP for conversation ${conversation_id}: ${result}`);
   res.json({ result, message: messages[result] });
 });
 
 tools.post("/resolve-case", async (req, res) => {
   const { conversation_id } = req.body ?? {};
-  if (!conversation_id) return res.status(400).json({ error: "conversation_id required" });
+  if (!conversation_id) {
+    emitEvent("tools.invalid_request", "resolve-case called without conversation_id");
+    return res.status(400).json({ error: "conversation_id required" });
+  }
   const ctx = getContextFor(conversation_id);
-  if (!ctx) return res.json({ outcome: "no_context", message: "No case context yet - look up the customer first." });
+  if (!ctx) {
+    emitEvent("resolve_case.no_context", `resolve-case called for conversation ${conversation_id} before get-context ran`);
+    return res.json({ outcome: "no_context", message: "No case context yet - look up the customer first." });
+  }
   try {
     const result = await resolveCase(
       ctx.facts,
@@ -193,16 +275,21 @@ tools.post("/resolve-case", async (req, res) => {
       { notify_email: ctx.email, amount_narrated: ctx.amount_narrated },
     );
     const messages: Record<string, string> = {
-      resolved: `Refund approved and processed. Amount ${ctx.amount_narrated} will return to the original payment method in 5 to 7 business days. Reference ${result.refund?.refund_id ?? ""}.`,
+      resolved: voiceResolvedMessage(result, ctx.amount_narrated),
       denied: `This request cannot be approved automatically (${result.verdict?.hard_check_failed ?? "policy"}). It is being escalated to a human specialist who will follow up on the ticket.`,
       return_requested: result.return_request?.message ?? result.note,
       already_resolved: "This order was already refunded earlier - no second refund was made. The original refund stands.",
       in_flight_blocked: "A previous attempt on this order is still being reviewed. A specialist will follow up.",
       unsupported: "This type of request needs a human specialist. The ticket has been escalated.",
+      provider_error: PROVIDER_ERROR_VOICE,
     };
     res.json({ outcome: result.outcome, message: messages[result.outcome] ?? result.note });
   } catch (err) {
-    res.status(500).json({ outcome: "error", message: (err as Error).message });
+    // Detail to the audit log, a neutral line to the customer: an exception's
+    // text can carry provider wording, ids or internal paths, and this reply is
+    // read aloud or shown as-is.
+    emitEvent("tools.error", `resolve-case threw for conversation ${conversation_id}: ${(err as Error).message}`);
+    res.status(500).json({ outcome: "error", message: PROVIDER_ERROR_VOICE });
   }
 });
 
@@ -230,6 +317,14 @@ tools.post("/return-received", (req, res) => {
 
 app.use("/tools", tools);
 
+// ElevenLabs "Custom LLM" bridge — voice's turn to talk to the real Freshdesk
+// AI Agent Studio bot instead of our own brain directly. See
+// voice-freshdesk-relay.ts for the mechanism and why it's demo-scale only.
+app.use("/voice/freshdesk-relay", voiceFreshdeskRelay);
+
+// Admin/demo-setup helpers (mint payment, create ticket) — see admin.ts.
+app.use("/admin", admin);
+
 // --- Chat channel (Step 8) — same brain, text pipe; the live-demo fallback.
 // Customer-facing like the voice widget (no shared secret): identity is still
 // gated by OTP, and the state machine lives server-side per session.
@@ -239,7 +334,8 @@ app.post("/chat", async (req, res) => {
   try {
     res.json({ reply: await handleChatMessage(String(session_id), String(message)) });
   } catch (err) {
-    res.status(500).json({ reply: `Something went wrong on our side: ${(err as Error).message}` });
+    emitEvent("chat.error", `chat handler threw for session ${session_id}: ${(err as Error).message}`);
+    res.status(500).json({ reply: PROVIDER_ERROR_CHAT });
   }
 });
 
@@ -251,4 +347,5 @@ app.post("/dev/test-event", (req, res) => {
 
 app.listen(PORT, () => {
   emitEvent("server.started", `Resolve orchestrator listening on http://localhost:${PORT}`);
+  rehydrateFollowUps();
 });

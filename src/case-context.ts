@@ -23,6 +23,7 @@ import type { CaseFacts } from "./types.js";
 import type { OrderRecord } from "./oms.js";
 import type { ReturnRecord } from "./returns.js";
 import { getHelpdesk } from "./helpdesk.js";
+import { createTicket } from "./integrations/freshdesk.js";
 import { getOrderSource } from "./oms.js";
 import { getReturn } from "./returns.js";
 import { emitEvent } from "./events.js";
@@ -87,14 +88,37 @@ export async function lookupContext(
   const helpdesk = getHelpdesk();
   const normalizedEmail = email.trim().toLowerCase();
   const tickets = await helpdesk.listTicketsByEmail(normalizedEmail);
-  if (tickets.length === 0) {
-    emitEvent("context.miss", `No tickets found for ${normalizedEmail}`);
-    return { found: false, message: "No account or open ticket found for that email address." };
-  }
 
-  // Newest ticket wins; the list API omits bodies, so fetch the full ticket.
-  const newest = [...tickets].sort((a, b) => b.id - a.id)[0];
-  const ticket = await helpdesk.getTicket(newest.id);
+  // The voice relay passes the Freshdesk ticket id itself as conversationId —
+  // fetching it directly sidesteps Freshdesk's ticket-search index, which can
+  // lag a few seconds behind a ticket only just created for this very call
+  // (search would otherwise resolve to a stale, unrelated older ticket).
+  let ticket = await helpdesk.getTicket(Number(conversationId)).catch(() => undefined);
+
+  if (!ticket) {
+    if (tickets.length === 0) {
+      // No prior ticket for this caller at all — a real first-time contact.
+      // Freshdesk-specific on purpose (see the Helpdesk interface's own
+      // comment on why createTicket isn't part of it): every call should
+      // leave a record for a human to find, even one we can't self-serve.
+      ticket = await createTicket({
+        subject: "Support call — details pending",
+        descriptionHtml: "New voice/chat contact — no prior ticket on file for this email.",
+        email: normalizedEmail,
+        name: normalizedEmail,
+      }).catch((err) => {
+        emitEvent("context.ticket_create_failed", `Could not create a ticket for ${normalizedEmail}: ${(err as Error).message}`);
+        return undefined;
+      });
+      if (!ticket) {
+        return { found: false, message: "No account or open ticket found for that email address." };
+      }
+    } else {
+      // Newest ticket wins; the list API omits bodies, so fetch the full ticket.
+      const newest = [...tickets].sort((a, b) => b.id - a.id)[0];
+      ticket = await helpdesk.getTicket(newest.id);
+    }
+  }
 
   // Subject first: it is the field the helpdesk shows in every list view, so a
   // demo ticket always carries the id there even when the prose is casual.
@@ -133,14 +157,29 @@ export async function lookupContext(
   // side of the gate, and it cannot fire anyway without a payment to refund.
   const returnStatus = classifyReturn(itemType, order?.returnable ?? true, rma);
 
-  const complete = Boolean(order?.payment_id && Number.isFinite(order?.amount_minor));
+  // "Complete" means the fact this claim type actually needs is present — a
+  // payment to refund, or a subscription+target plan to change. Checking
+  // payment_id alone would wrongly under-score every valid plan_change case.
+  const complete = Boolean(
+    (order?.payment_id || (order?.subscription_id && order?.requested_product_id)) &&
+      Number.isFinite(order?.amount_minor),
+  );
   const facts: CaseFacts = {
     ticket_id: String(ticket.id),
     order_id: orderId ?? "unknown",
     amount: order?.amount_minor ?? 0,
     currency: order?.currency ?? "INR",
     payment_id: order?.payment_id,
-    claim_type: /refund/i.test(ticket.subject) ? "refund" : "other",
+    subscription_id: order?.subscription_id,
+    requested_product_id: order?.requested_product_id,
+    // Structured signal first (order.requested_product_id — the order record
+    // the customer cannot write to), same principle as payment_id: never
+    // decide what the guard judges from ticket prose alone.
+    claim_type: order?.requested_product_id
+      ? "plan_change"
+      : /refund/i.test(ticket.subject)
+        ? "refund"
+        : "other",
     item_type: itemType,
     return_status: returnStatus,
     delivered_at: order?.delivered_at,

@@ -372,6 +372,8 @@ body {
   justify-self: start;
   border: 1px solid var(--border);
   color: var(--dim);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .event .type.money {
   color: var(--green);
@@ -483,4 +485,103 @@ body {
 }
 .voice-grip:active {
   cursor: grabbing;
+}
+
+/* --- Chat page: Freshworks agent tab + built-in fallback ------------------- */
+.chat-page { display: flex; flex-direction: column; gap: 0.75rem; }
+.chat-tabs { display: flex; gap: 0.5rem; }
+.chat-tab {
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid var(--border, #d0d7de);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+.chat-tab.active { background: var(--accent, #2563eb); border-color: var(--accent, #2563eb); color: #fff; }
+.chat-fw { padding: 1rem 0; }
+.chat-fw-note { opacity: 0.8; max-width: 46rem; line-height: 1.5; }
+
+/* Sits just left of the Freshworks bubble so it reads as part of the widget. */
+.chat-newchat {
+  position: fixed;
+  right: 96px;
+  bottom: 28px;
+  z-index: 2147483000;
+  padding: 8px 14px;
+  border: 1px solid var(--border, #d0d5dd);
+  border-radius: 999px;
+  background: #fff;
+  color: #344054;
+  font: 600 13px/1 system-ui, sans-serif;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(16, 24, 40, 0.15);
+}
+.chat-newchat:hover { background: #f2f4f7; }
+
+/* --- Admin --- */
+.admin {
+  max-width: 760px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 24px 20px 60px;
+}
+.admin .sub {
+  color: var(--dim);
+  margin-bottom: 24px;
+}
+.admin-step {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 18px;
+  background: var(--panel);
+}
+.admin-step h2 {
+  font-size: 15px;
+  margin: 0 0 12px;
+}
+.admin-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.admin-row select,
+.admin-row input {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+.admin-row button {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: none;
+  background: var(--green);
+  color: var(--btn-fg);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.admin-row button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.admin-result {
+  margin-top: 12px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.admin-verify {
+  margin-top: 12px;
+  font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  overflow-x: auto;
 }

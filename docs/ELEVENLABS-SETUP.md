@@ -75,7 +75,7 @@ Expect four `tool created:` lines and one `agent ... updated`.
 1. `curl http://localhost:3000/app-config` → must return the NEW agent id.
 2. Server + ngrok up, `npm run seed:repeat` for a fresh ticket.
 3. **Text chat** in the agent's dashboard Preview panel (costs almost nothing):
-   run the Ravi flow from `docs/DEMO-SCENARIOS.md` — complaint → email → OTP
+   run the Sujeet flow from `docs/DEMO-SCENARIOS.md` — complaint → email → OTP
    from Gmail → resolve. Proves key, agent, tools and tunnel end to end.
 4. One **short voice call** (~20–30 s, greeting → email → hang up) to confirm
    audio before spending real credits.

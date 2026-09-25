@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { sendChat } from "../lib/api";
+import FreshworksWidget from "../components/FreshworksWidget";
 
 interface Message {
   role: "agent" | "user";
@@ -12,7 +13,7 @@ function newSessionId(): string {
   return "s-" + Math.random().toString(36).slice(2, 10);
 }
 
-export default function Chat() {
+function BuiltInChat() {
   const sessionRef = useRef(newSessionId());
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -78,6 +79,68 @@ export default function Chat() {
           Send
         </button>
       </form>
+    </div>
+  );
+}
+
+type Mode = "freshworks" | "builtin";
+type WidgetStatus = "loading" | "ready" | "unavailable";
+
+/**
+ * Two ways in, one backend. The Freshworks AI Agent is the main demo; the
+ * built-in chat talks to the same OTP / guard / refund backend with no
+ * Freshworks dependency, so it is the fallback if the widget or the trial is
+ * unavailable on the day.
+ */
+export default function Chat() {
+  const [mode, setMode] = useState<Mode>("freshworks");
+  const [status, setStatus] = useState<WidgetStatus>("loading");
+  const [resetKey, setResetKey] = useState(1); // 1 = start fresh on every page load
+
+  // Nothing to load if the widget is not configured: go straight to the fallback.
+  useEffect(() => {
+    if (status === "unavailable" && mode === "freshworks") setMode("builtin");
+  }, [status, mode]);
+
+  return (
+    <div className="chat-page">
+      <div className="chat-tabs" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === "freshworks"}
+          className={mode === "freshworks" ? "chat-tab active" : "chat-tab"}
+          onClick={() => setMode("freshworks")}
+        >
+          Freshworks AI Agent
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === "builtin"}
+          className={mode === "builtin" ? "chat-tab active" : "chat-tab"}
+          onClick={() => setMode("builtin")}
+        >
+          Built-in chat (fallback)
+        </button>
+      </div>
+
+      {mode === "freshworks" ? (
+        <div className="chat-fw">
+          <FreshworksWidget onStatus={setStatus} resetKey={resetKey} />
+          <p className="chat-fw-note">
+            {status === "loading" && "Loading the Freshworks chat widget…"}
+            {status === "ready" &&
+              "The Freshworks AI Agent is the chat bubble at the bottom right. It runs the OTP-verified refund workflow against this backend — watch the Ops tab to see each decision."}
+            {status === "unavailable" && "The Freshworks widget is not available — switching to the built-in chat."}
+          </p>
+          <button type="button" className="chat-newchat" onClick={() => setResetKey((k) => k + 1)}>
+            ↻ New chat
+          </button>
+        </div>
+      ) : (
+        <BuiltInChat />
+      )}
     </div>
   );
 }

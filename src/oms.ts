@@ -56,6 +56,13 @@ export interface OrderRecord {
   payment_id?: string;
   /** ISO date the customer received it. The return window runs from here. */
   delivered_at?: string;
+  /**
+   * Dodo subscription behind a plan_change claim. Structured, same as
+   * payment_id — never regexed from the ticket body (this file's whole point).
+   */
+  subscription_id?: string;
+  /** Product id the customer wants to move to; presence signals a plan_change order. */
+  requested_product_id?: string;
   customer: {
     email: string;
     name?: string;

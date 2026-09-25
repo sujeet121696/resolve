@@ -107,8 +107,10 @@ async function gql<T>(query: string, variables: Record<string, unknown>): Promis
 
 // --- Mapping -----------------------------------------------------------------
 
-interface ShopifyOrder {
+export interface ShopifyOrder {
   name: string;
+  /** When the order was placed — the fallback start of the return window. */
+  createdAt: string;
   note: string | null;
   currentTotalPriceSet: { shopMoney: { amount: string; currencyCode: string } };
   fulfillments: { createdAt: string }[];
@@ -123,6 +125,7 @@ const ORDER_QUERY = `
     orders(first: 2, query: $q) {
       nodes {
         name
+        createdAt
         note
         currentTotalPriceSet { shopMoney { amount currencyCode } }
         fulfillments(first: 1) { createdAt }
@@ -146,14 +149,19 @@ function toMinorUnits(amount: string): number {
 }
 
 function narrate(minorUnits: number, currency: string): string {
+  // Whole amounts read as "₹1,499"; amounts with cents keep them ("$14.99").
+  // Rounding everything to whole units narrated a $14.99 order as "$15" — a
+  // wrong number said out loud by an agent that is supposed to never invent one.
+  const whole = minorUnits % 100 === 0;
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency,
-    maximumFractionDigits: 0,
+    minimumFractionDigits: whole ? 0 : 2,
+    maximumFractionDigits: whole ? 0 : 2,
   }).format(minorUnits / 100);
 }
 
-function toOrderRecord(orderId: string, node: ShopifyOrder): OrderRecord {
+export function toOrderRecord(orderId: string, node: ShopifyOrder): OrderRecord {
   const money = node.currentTotalPriceSet.shopMoney;
   const amountMinor = toMinorUnits(money.amount);
   const line = node.lineItems.nodes[0];
@@ -180,7 +188,12 @@ function toOrderRecord(orderId: string, node: ShopifyOrder): OrderRecord {
     // integration would read the delivery event; this is the closest field a
     // read_orders scope has, and it makes the return window start slightly
     // early — the customer-favouring direction.
-    delivered_at: node.fulfillments[0]?.createdAt?.slice(0, 10),
+    //
+    // No fulfilment yet → fall back to the ORDER date. Without this an
+    // unfulfilled order had no start date and so never expired, which let an
+    // arbitrarily old order sail past the return window. Falling back errs on
+    // the cautious side: the window can only start earlier than delivery.
+    delivered_at: (node.fulfillments[0]?.createdAt ?? node.createdAt)?.slice(0, 10),
     customer: { email: "", prior_refunds: 0 },
   };
 }

@@ -7,7 +7,7 @@
 // the agent to refund. Amounts are USD (test mode rejects INR — SPIKES.md);
 // the demo narrates ₹ with a dual label (DESIGN.md decision 2).
 //
-// Freshdesk half (waits for the account): Ravi + Priya complaint tickets, with
+// Freshdesk half (waits for the account): Sujeet + Priya complaint tickets, with
 // the order facts written to the order source rather than into the ticket body.
 // Skipped with a notice until FRESHDESK_API_KEY is set.
 
@@ -26,21 +26,21 @@ const PRODUCTS = [
 ] as const;
 
 const CUSTOMERS = [
-  { name: "Ravi Kumar", email: "ravi.test@example.com" },
-  { name: "Priya Sharma", email: "priya.test@example.com" },
-  { name: "Arjun Iyer", email: "arjun.test@example.com" },
+  { name: "Sujeet Singh", email: "sujeet6623@gmail.com" },
+  { name: "Priya Sharma", email: "priya@example.com" },
+  { name: "Arjun Iyer", email: "arjun@example.com" },
 ] as const;
 
-// Several Ravi payments: test-mode fees drain the wallet, and Steps 4/7/9 each
+// Several Sujeet payments: test-mode fees drain the wallet, and Steps 4/7/9 each
 // burn a refundable payment. One Priya payment (her refund gets DENIED anyway).
 const PAYMENT_PLAN: { customerEmail: string; productName: string; count: number }[] = [
-  // Ravi's scenario refunds a payment permanently on every run, so his stock is
+  // Sujeet's scenario refunds a payment permanently on every run, so his stock is
   // one-run-one-payment: rehearsals on chat and takes on voice both consume one.
   // 10 covers a practice session plus retakes. Priya's case is denied at the
   // auto-limit and never consumes hers, so 1 is enough for her forever.
-  { customerEmail: "ravi.test@example.com", productName: "Resolve Demo — Wireless Earbuds", count: 10 },
-  { customerEmail: "priya.test@example.com", productName: "Resolve Demo — Premium Annual Plan", count: 1 },
-  { customerEmail: "arjun.test@example.com", productName: "Resolve Demo — Wireless Earbuds", count: 1 },
+  { customerEmail: "sujeet6623@gmail.com", productName: "Resolve Demo — Wireless Earbuds", count: 10 },
+  { customerEmail: "priya@example.com", productName: "Resolve Demo — Premium Annual Plan", count: 1 },
+  { customerEmail: "arjun@example.com", productName: "Resolve Demo — Wireless Earbuds", count: 1 },
 ];
 
 async function seedDodo() {
@@ -170,8 +170,8 @@ const EARBUDS = {
 
 const TICKETS: TicketSpec[] = [
   {
-    email: "ravi.test@example.com",
-    name: "Ravi Kumar",
+    email: "sujeet6623@gmail.com",
+    name: "Sujeet Singh",
     orderId: "ORD-1101",
     subject: "Refund request — Wireless Earbuds arrived damaged (ORD-1101)",
     priority: 2,
@@ -183,10 +183,10 @@ const TICKETS: TicketSpec[] = [
     priorRefunds: 0,
   },
   {
-    // Step 7 demo ticket — Ravi's SECOND order. get_context picks the newest
+    // Step 7 demo ticket — Sujeet's SECOND order. get_context picks the newest
     // ticket, so a live call lands here and the refund fires on a fresh payment.
-    email: "ravi.test@example.com",
-    name: "Ravi Kumar",
+    email: "sujeet6623@gmail.com",
+    name: "Sujeet Singh",
     orderId: "ORD-1103",
     subject: "Refund request — Wireless Earbuds, wrong colour delivered (ORD-1103)",
     priority: 2,
@@ -200,7 +200,7 @@ const TICKETS: TicketSpec[] = [
     returnReceived: true,
   },
   {
-    email: "priya.test@example.com",
+    email: "priya@example.com",
     name: "Priya Sharma",
     orderId: "ORD-2102",
     subject: "Refund request — Premium Annual Plan (ORD-2102)",

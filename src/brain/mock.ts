@@ -2,7 +2,7 @@
 //
 // Encodes the same rules the real prompts will express, so the whole pipeline
 // (Steps 2, 4–8) can be built and tested offline:
-//   Ravi  (₹1,499, good history, high confidence)  → refund approved
+//   Sujeet  (₹1,499, good history, high confidence)  → refund approved
 //   Priya (₹18,999, over limit, low confidence)    → denied → escalation path
 //
 // Each call sleeps ~1s to imitate real LLM latency, so the voice flow's

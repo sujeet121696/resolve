@@ -1,8 +1,11 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import ElevenLabsWidget from "./components/ElevenLabsWidget";
 import ThemeToggle from "./components/ThemeToggle";
 
 export default function App() {
+  // The Chat page hosts the Freshworks widget in the same bottom-right corner as
+  // the voice bubble, so the voice bubble steps aside there (Home keeps it).
+  const onChatPage = useLocation().pathname.startsWith("/chat");
   return (
     <div className="app">
       <header className="nav">
@@ -15,11 +18,12 @@ export default function App() {
           </NavLink>
           <NavLink to="/chat">Chat</NavLink>
           <NavLink to="/ops">Ops</NavLink>
+          <NavLink to="/admin">Admin</NavLink>
         </nav>
         <ThemeToggle />
       </header>
       <Outlet />
-      <ElevenLabsWidget />
+      {!onChatPage && <ElevenLabsWidget />}
     </div>
   );
 }
