@@ -2,11 +2,12 @@ import { useEffect, useRef } from "react";
 import { useEvents, type ResolveEvent } from "../lib/useEvents";
 
 function badgeClass(type: string): string {
-  if (/dodo|refund|payment/.test(type)) return "money";
-  if (/denied|error|failed|refus/.test(type)) return "bad";
+  // "bad" must be tested before "money": money.failed is a failure, not a payout.
+  if (/denied|error|failed|refus|unauthorized/.test(type)) return "bad";
+  if (/money|dodo|refund|payment/.test(type)) return "money";
   if (/otp|verify/.test(type)) return "otp";
   if (/agent|guard|decide|escalat/.test(type)) return "agent";
-  if (/warn|retry/.test(type)) return "warn";
+  if (/warn|retry|fallback/.test(type)) return "warn";
   return "";
 }
 

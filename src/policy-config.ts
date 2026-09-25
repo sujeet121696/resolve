@@ -69,3 +69,33 @@ function loadPolicy(): Policy {
       : DEFAULT_POLICY.escalation_followup_minutes,
   };
 }
+
+// Auto-approve ceilings in MINOR UNITS, per currency.
+//
+// One global number cannot serve two currencies: 500_000 is ₹5,000 but also
+// $5,000, so pointing the order source at a USD store would have raised the
+// real ceiling roughly a hundredfold without changing a line of config. The
+// ceiling is a money decision, so it has to be denominated.
+//
+// Shared by the guard's hard check AND every brain's judgment prompt, so the
+// number the model reasons about is always the number the code enforces.
+// Override per currency with AUTO_REFUND_LIMIT_<CCY> (e.g.
+// AUTO_REFUND_LIMIT_USD) for an ops-level demo/incident escape hatch.
+/**
+ * The ceiling for a currency, or undefined when we have no ruling for it.
+ *
+ * Undefined is a real answer, not an error case — see the unknown_currency hard
+ * check in policy-guard.ts. AUTO_REFUND_LIMIT (unsuffixed) is honoured for INR
+ * only, so existing deployments that set it keep the exact ceiling they had.
+ */
+export function limitFor(currency: string | undefined): number | undefined {
+  const ccy = currency?.trim().toUpperCase();
+  if (!ccy) return undefined;
+  const configured =
+    process.env[`AUTO_REFUND_LIMIT_${ccy}`] ??
+    (ccy === "INR" ? process.env.AUTO_REFUND_LIMIT : undefined) ??
+    getPolicy().currencies[ccy]?.auto_approve_limit;
+  if (configured === undefined) return undefined;
+  const limit = Number(configured);
+  return Number.isFinite(limit) ? limit : undefined;
+}

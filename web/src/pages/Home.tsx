@@ -36,8 +36,8 @@ export default function Home() {
             <div className="icon">📊</div>
             <h2>Ops dashboard</h2>
             <p>
-              Watch every decision as it happens: brain verdicts, guard denials, refunds, escalations, follow-ups — the
-              audit trail, live.
+              Watch every decision as it happens: brain verdicts, guard denials, refunds, plan changes, escalations,
+              follow-ups — the audit trail, live.
             </p>
             <span className="cta">Open ops →</span>
           </Link>
@@ -63,7 +63,8 @@ export default function Home() {
             </span>
             <span className="arrow">→</span>
             <span className="pill">
-              <b>Dodo</b> refund <i style={{ color: "var(--dim)" }}>or</i> <b>human</b> escalation
+              <b>Dodo</b> refund <i style={{ color: "var(--dim)" }}>/</i> plan change{" "}
+              <i style={{ color: "var(--dim)" }}>or</i> <b>human</b> escalation
             </span>
           </div>
         </div>

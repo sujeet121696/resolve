@@ -22,7 +22,7 @@ node_modules/
 dist/
 
 # Yarn (web/) — keep yarn.lock, drop the local install state
-.yarn/install-state.gz
-.yarn/cache/
+**/.yarn/install-state.gz
+**/.yarn/cache/
 *.log
 .DS_Store

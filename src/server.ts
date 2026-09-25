@@ -9,6 +9,7 @@ import { attemptsLeft, attemptsPhrase, isVerified, sendOtp, verifyOtp } from "./
 import { resolveCase } from "./resolve-case.js";
 import { markReturnReceived } from "./returns.js";
 import { handleChatMessage } from "./chat.js";
+import { dashboardMetrics } from "./metrics.js";
 import { voiceFreshdeskRelay } from "./voice-freshdesk-relay.js";
 import { admin } from "./admin.js";
 import { rehydrateFollowUps } from "./agents/escalation.js";
@@ -51,6 +52,17 @@ app.get("/app-config", (_req, res) => {
         ? { host: `https://${domain}.freshdesk.com`, token, widgetId }
         : null,
   });
+});
+
+// Cost dashboard (Costs tab). Aggregates only — counts, minutes, tokens,
+// dollars — never emails or payment ids, so it is safe on the public tunnel
+// where the raw audit trail (audit-report.ts) deliberately is not.
+app.get("/dashboard-metrics", async (req, res) => {
+  try {
+    res.json(await dashboardMetrics(req.query.period === "today" ? "today" : "all"));
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
 });
 
 // SSE stream: replay recent history, then push live events until the tab closes.

@@ -9,9 +9,9 @@
 import type { Brain } from "../brain.js";
 import type { CaseFacts, GuardVerdict, ResolutionProposal } from "../types.js";
 import { emitEvent } from "../events.js";
+import { limitFor } from "../policy-config.js";
 
 const MODEL = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5";
-const AUTO_LIMIT = Number(process.env.AUTO_REFUND_LIMIT ?? 500_000);
 const CONFIDENCE_FLOOR = 0.7;
 
 // Claude has no OpenAI-style json_object mode — the prompt demands JSON only,
@@ -92,13 +92,21 @@ ${JSON.stringify(facts, null, 2)}`,
 
   async judge(proposal: ResolutionProposal): Promise<GuardVerdict> {
     const { facts } = proposal;
+    // The ceiling is per-currency (limitFor, shared with the guard's hard
+    // check) so the model reasons about the number the code actually enforces
+    // — a flat limit here read as ₹5,000 for INR but $5,000 for USD.
+    const limit = limitFor(facts.currency);
+    const limitLine =
+      limit === undefined
+        ? `- no auto-approve ceiling is configured for currency "${facts.currency}" — any money-moving action must be denied (a human handles it)`
+        : `- amounts are in minor units; anything above ${limit} ${facts.currency} is over the
+  auto-approve limit and must be denied (a human handles it)`;
     const out = await generate<{ decision: "approve" | "deny"; reason: string }>(
       `You are the Policy-Guard of a customer support system. You independently
 judge a proposed action. You see ONLY structured facts, never the conversation.
 
 Policy (violations MUST be denied):
-- amounts are in minor units; anything above ${AUTO_LIMIT} is over the
-  auto-approve limit and must be denied (a human handles it)
+${limitLine}
 - resolution_confidence below ${CONFIDENCE_FLOOR} must be denied
 - a refund proposal without a payment_id must be denied
 - otherwise, weigh customer history: long tenure and few prior refunds favor

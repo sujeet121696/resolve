@@ -1,0 +1,34 @@
+{
+  "_note": "Rate card for the /dashboard-metrics cost dashboard. Edit freely — no redeploy needed (loaded per request). All rates in the unit named by the key.",
+  "llm": {
+    "provider": "Anthropic",
+    "model": "claude-sonnet-5",
+    "usd_per_mtok_in": 3.0,
+    "usd_per_mtok_out": 15.0
+  },
+  "voice": {
+    "provider": "ElevenLabs Conversational AI",
+    "usd_per_min": 0.15,
+    "usd_per_credit": 0.00022,
+    "note": "usd_per_credit = Creator plan $22 / ~100k credits. usd_per_min derived from actual charges: active calls burn ~600-680 credits/min (measured across our 40 real conversations). Demo-scale cash cost is the flat $22/mo plan."
+  },
+  "telephony": {
+    "provider": "Vobiz (PSTN, India DID)",
+    "inr_per_min": 0.5,
+    "usd_per_inr": 0.012
+  },
+  "payments": {
+    "provider": "Dodo Payments",
+    "usd_fee_per_refund": 1.0
+  },
+  "helpdesk": {
+    "provider": "Freshdesk",
+    "usd_per_month": 0,
+    "note": "free tier during the hackathon"
+  },
+  "benchmark": {
+    "human_cost_per_ticket_usd_low": 5,
+    "human_cost_per_ticket_usd_high": 7,
+    "source": "widely-cited industry range for a human-handled support ticket"
+  }
+}

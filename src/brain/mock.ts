@@ -12,9 +12,8 @@
 import type { Brain } from "../brain.js";
 import type { CaseFacts, GuardVerdict, ResolutionProposal } from "../types.js";
 import { emitEvent } from "../events.js";
+import { limitFor } from "../policy-config.js";
 
-// Minor units (paise): ₹5,000 auto-approve ceiling unless overridden.
-const AUTO_LIMIT = Number(process.env.AUTO_REFUND_LIMIT ?? 500_000);
 const CONFIDENCE_FLOOR = 0.7;
 
 const thinkingDelay = () =>
@@ -42,11 +41,21 @@ export const mockBrain: Brain = {
     await thinkingDelay();
     const { facts } = proposal;
 
+    // Per-currency ceiling, shared with the guard's hard check (limitFor in
+    // policy-config.ts) — a flat number here read as ₹5,000 but also $5,000.
+    const limit = limitFor(facts.currency);
+
     let verdict: GuardVerdict;
-    if (facts.amount > AUTO_LIMIT) {
+    if (limit === undefined) {
       verdict = {
         decision: "deny",
-        reason: `[mock] amount ${facts.amount} exceeds auto-approve limit ${AUTO_LIMIT}`,
+        reason: `[mock] no auto-approve ceiling configured for currency "${facts.currency}"`,
+        hard_check_failed: "unknown_currency",
+      };
+    } else if (facts.amount > limit) {
+      verdict = {
+        decision: "deny",
+        reason: `[mock] amount ${facts.amount} ${facts.currency} exceeds auto-approve limit ${limit}`,
         hard_check_failed: "auto_limit",
       };
     } else if (facts.resolution_confidence < CONFIDENCE_FLOOR) {

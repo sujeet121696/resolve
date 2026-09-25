@@ -10,36 +10,7 @@
 import type { GuardVerdict, ResolutionProposal } from "../types.js";
 import { getBrain } from "../brain.js";
 import { emitEvent } from "../events.js";
-import { getPolicy } from "../policy-config.js";
-
-// Auto-approve ceilings in MINOR UNITS, per currency.
-//
-// One global number cannot serve two currencies: 500_000 is ₹5,000 but also
-// $5,000, so pointing the order source at a USD store would have raised the
-// real ceiling roughly a hundredfold without changing a line of config. The
-// ceiling is a money decision, so it has to be denominated.
-//
-// Source of truth is config/policy.json (policy-as-config) — a merchant edits
-// that file, not this one. Override per currency with AUTO_REFUND_LIMIT_<CCY>
-// (e.g. AUTO_REFUND_LIMIT_USD) for an ops-level demo/incident escape hatch.
-/**
- * The ceiling for a currency, or undefined when we have no ruling for it.
- *
- * Undefined is a real answer, not an error case — see the unknown_currency hard
- * check. AUTO_REFUND_LIMIT (unsuffixed) is honoured for INR only, so existing
- * deployments that set it keep the exact ceiling they had.
- */
-function limitFor(currency: string | undefined): number | undefined {
-  const ccy = currency?.trim().toUpperCase();
-  if (!ccy) return undefined;
-  const configured =
-    process.env[`AUTO_REFUND_LIMIT_${ccy}`] ??
-    (ccy === "INR" ? process.env.AUTO_REFUND_LIMIT : undefined) ??
-    getPolicy().currencies[ccy]?.auto_approve_limit;
-  if (configured === undefined) return undefined;
-  const limit = Number(configured);
-  return Number.isFinite(limit) ? limit : undefined;
-}
+import { getPolicy, limitFor } from "../policy-config.js";
 
 // Store-wide return window; a product can override it via return_window_days.
 // Source of truth is config/policy.json; RETURN_WINDOW_DAYS env var still wins

@@ -18,6 +18,7 @@ export default function App() {
           </NavLink>
           <NavLink to="/chat">Chat</NavLink>
           <NavLink to="/ops">Ops</NavLink>
+          <NavLink to="/costs">Costs</NavLink>
           <NavLink to="/admin">Admin</NavLink>
         </nav>
         <ThemeToggle />
