@@ -1,0 +1,9 @@
+{
+  "resolve_token": {
+    "display_name": "Resolve tools token",
+    "description": "Shared secret for Resolve's /tools API (the TOOLS_TOKEN value from the server's .env). Stored as a secure iparam — it is substituted server-side by the Freshworks request proxy and never reaches the browser.",
+    "type": "text",
+    "secure": true,
+    "required": true
+  }
+}

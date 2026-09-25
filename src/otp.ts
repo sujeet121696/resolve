@@ -5,6 +5,9 @@
 //     the conversation/LLM memory, so it can't be talked into existence.
 //   - 6-digit code, 5-minute expiry, TWO wrong attempts → locked. A locked
 //     conversation stays locked; resolve_case refuses even with perfect facts.
+//   - Asking for a new code must not be a way round that: a locked conversation
+//     is never re-issued a code, and a conversation gets at most MAX_SENDS codes,
+//     so resending cannot buy unlimited fresh guesses (or spam the owner's inbox).
 
 import crypto from "node:crypto";
 import { deliveryAddressFor, fromAddress, mailTransport, smtpConfigured } from "./mailer.js";
@@ -16,15 +19,40 @@ interface OtpEntry {
   expires_at: number;
   attempts_left: number;
   state: "pending" | "verified" | "locked";
+  sends: number;
 }
 
 const sessions = new Map<string, OtpEntry>(); // keyed by conversation_id
 
 const OTP_TTL_MS = 5 * 60 * 1000;
 const MAX_ATTEMPTS = 2;
+const MAX_SENDS = 3;
 
-/** Issue a code and email it. Re-issuing replaces the old code (fresh attempts). */
-export async function sendOtp(conversationId: string, email: string): Promise<{ sent: boolean }> {
+export interface SendResult {
+  sent: boolean;
+  /** Set when no code was issued because the request itself was refused. */
+  blocked?: "locked" | "limit";
+}
+
+/**
+ * Issue a code and email it. Re-issuing replaces the old code with fresh
+ * attempts — but never for a locked conversation, and never beyond MAX_SENDS.
+ */
+export async function sendOtp(conversationId: string, email: string): Promise<SendResult> {
+  const existing = sessions.get(conversationId);
+  if (existing?.state === "locked") {
+    emitEvent("otp.blocked", `New code refused — conversation ${conversationId} is locked`, {
+      conversation_id: conversationId,
+    });
+    return { sent: false, blocked: "locked" };
+  }
+  if (existing && existing.sends >= MAX_SENDS) {
+    emitEvent("otp.blocked", `New code refused — conversation ${conversationId} reached ${MAX_SENDS} codes`, {
+      conversation_id: conversationId,
+    });
+    return { sent: false, blocked: "limit" };
+  }
+
   const code = crypto.randomInt(100000, 1000000).toString();
   sessions.set(conversationId, {
     code,
@@ -32,6 +60,7 @@ export async function sendOtp(conversationId: string, email: string): Promise<{ 
     expires_at: Date.now() + OTP_TTL_MS,
     attempts_left: MAX_ATTEMPTS,
     state: "pending",
+    sends: (existing?.sends ?? 0) + 1,
   });
 
   if (!smtpConfigured()) {

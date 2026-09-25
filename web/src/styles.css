@@ -372,6 +372,8 @@ body {
   justify-self: start;
   border: 1px solid var(--border);
   color: var(--dim);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .event .type.money {
   color: var(--green);
@@ -483,4 +485,384 @@ body {
 }
 .voice-grip:active {
   cursor: grabbing;
+}
+
+/* --- Chat page: Freshworks agent tab + built-in fallback ------------------- */
+.chat-page { display: flex; flex-direction: column; gap: 0.75rem; }
+.chat-tabs { display: flex; gap: 0.5rem; }
+.chat-tab {
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid var(--border, #d0d7de);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+.chat-tab.active { background: var(--accent, #2563eb); border-color: var(--accent, #2563eb); color: #fff; }
+.chat-fw { padding: 1rem 0; }
+.chat-fw-note { opacity: 0.8; max-width: 46rem; line-height: 1.5; }
+
+/* Sits just left of the Freshworks bubble so it reads as part of the widget. */
+.chat-newchat {
+  position: fixed;
+  right: 96px;
+  bottom: 28px;
+  z-index: 2147483000;
+  padding: 8px 14px;
+  border: 1px solid var(--border, #d0d5dd);
+  border-radius: 999px;
+  background: #fff;
+  color: #344054;
+  font: 600 13px/1 system-ui, sans-serif;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(16, 24, 40, 0.15);
+}
+.chat-newchat:hover { background: #f2f4f7; }
+
+/* --- Admin --- */
+.admin {
+  max-width: 760px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 24px 20px 60px;
+}
+.admin .sub {
+  color: var(--dim);
+  margin-bottom: 24px;
+}
+.admin-step {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 18px;
+  background: var(--panel);
+}
+.admin-step h2 {
+  font-size: 15px;
+  margin: 0 0 12px;
+}
+.admin-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.admin-row select,
+.admin-row input {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+.admin-row button {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: none;
+  background: var(--green);
+  color: var(--btn-fg);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.admin-row button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.admin-result {
+  margin-top: 12px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.admin-verify {
+  margin-top: 12px;
+  font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  overflow-x: auto;
+}
+
+/* Costs tab — unit-economics dashboard */
+.dash {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 24px 20px 48px;
+}
+.dash h1 {
+  margin: 0 0 4px;
+  font-size: 26px;
+}
+.dash h3 {
+  margin: 32px 0 12px;
+  font-size: 17px;
+}
+.dash-dim {
+  color: var(--dim);
+  font-size: 14px;
+  margin: 4px 0;
+}
+.dash-dim code {
+  font-size: 13px;
+}
+.dash-error {
+  color: var(--red);
+  padding: 24px 0;
+}
+.dash-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+.dash-head button {
+  background: var(--blue);
+  color: var(--btn-fg);
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.dash-head button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.dash-hero {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 14px;
+  margin-top: 20px;
+}
+.hero-stat {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px 20px;
+}
+.hero-stat.main {
+  border-color: var(--blue);
+}
+.hero-value {
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.hero-inr {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--dim);
+}
+.hero-stat.main .hero-value {
+  color: var(--blue);
+}
+.hero-label {
+  font-weight: 600;
+  margin-top: 2px;
+}
+.hero-sub {
+  color: var(--dim);
+  font-size: 13px;
+  margin-top: 6px;
+}
+.dash-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  font-size: 14px;
+}
+.dash-table th,
+.dash-table td {
+  text-align: left;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--row-border);
+}
+.dash-table th {
+  color: var(--dim);
+  font-weight: 600;
+  font-size: 13px;
+}
+.dash-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.dash-table tr.total td {
+  font-weight: 700;
+  border-bottom: none;
+  background: var(--accent-soft);
+}
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}
+.dash-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 18px;
+}
+.dash-card h4 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+.dash-card ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 14px;
+}
+.dash-card li {
+  margin: 3px 0;
+}
+.dash-guard {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 18px;
+  font-size: 14px;
+}
+.dash-guard p {
+  margin: 4px 0 10px;
+}
+.guard-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.dash-table.calls {
+  font-size: 13px;
+}
+.dash-table.calls td,
+.dash-table.calls th {
+  padding: 7px 12px;
+}
+.call-result {
+  font-size: 12px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  color: var(--dim);
+}
+.call-result.success {
+  color: var(--green);
+  border-color: var(--green);
+}
+.call-result.failure {
+  color: var(--red);
+  border-color: var(--red);
+}
+.dash-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.dash-badges .badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  color: var(--dim);
+  background: var(--panel);
+  white-space: nowrap;
+}
+.dash-badges .badge.live {
+  color: var(--green);
+  border-color: var(--green);
+}
+.dash-head-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.period-toggle {
+  display: flex;
+  gap: 6px;
+}
+.dash-updated {
+  color: var(--dim);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--dim);
+}
+.pager-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pager-range {
+  margin-right: 6px;
+}
+.pager-count {
+  white-space: nowrap;
+}
+.pager button {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 5px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.pager button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.pager select {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.calls-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.filter-pill {
+  background: var(--panel);
+  color: var(--dim);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 3px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.filter-pill.active {
+  color: var(--blue);
+  border-color: var(--blue);
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+.dash-foot {
+  color: var(--dim);
+  font-size: 12px;
+  margin-top: 28px;
+  text-align: center;
+}
+.dash-foot code {
+  font-size: 11px;
 }

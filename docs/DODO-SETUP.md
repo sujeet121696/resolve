@@ -32,7 +32,7 @@ Our wrapper (`src/integrations/dodo.ts`) throws unless it is set explicitly.
 npm run seed
 ```
 
-Creates the demo products, customers (Ravi / Priya / Arjun) and **checkout
+Creates the demo products, customers (Sujeet / Priya / Arjun) and **checkout
 links** printed to the terminal. Then the manual part:
 
 1. Open each link in a browser and pay with test card **4242 4242 4242 4242**
@@ -56,7 +56,7 @@ links** printed to the terminal. Then the manual part:
   once the balance dips. Seed several payments; partial refunds always work
   (which is why demo refunds are partial: $14.99 of a $17.99 payment).
 - One payment per demo run: idempotency is per-ticket, and each resolved case
-  refunds its payment. `npm run seed:repeat` mints a fresh Ravi ticket bound to
+  refunds its payment. `npm run seed:repeat` mints a fresh Sujeet ticket bound to
   his newest un-refunded payment — the per-demo recipe.
 - The seed scripts import the Dodo SDK directly (seeding is vendor-specific);
   runtime code goes through the `src/payments.ts` seam (`PAYMENTS=dodo`).

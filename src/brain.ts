@@ -9,6 +9,10 @@
 //   BRAIN=auto-sarvam → sarvam primary, groq fallback (the DEMO-DAY setting:
 //                   Sarvam is a hackathon sponsor, so the sponsor model makes
 //                   the guarded decisions live; Groq stays as the safety net)
+//   BRAIN=auto-claude → claude primary, sarvam fallback, groq final fallback
+//                   (the PRODUCTION default from Sept 2026 — real Anthropic
+//                   API makes the guarded decisions, with two free-tier safety
+//                   nets behind it if the Claude call errors or rate-limits)
 //   BRAIN=groq    → Groq free tier — fast: measured p50 1.6 s for the full
 //                   propose+judge double call (Step 3 harness, Aug 21)
 //   BRAIN=gemini  → Google AI Studio — free tier is 20 req/day and slow
@@ -67,6 +71,7 @@ export function getBrain(): Brain {
   const choice = (process.env.BRAIN ?? "mock").toLowerCase();
   if (choice === "auto") return withFallback(groqBrain, sarvamBrain);
   if (choice === "auto-sarvam") return withFallback(sarvamBrain, groqBrain);
+  if (choice === "auto-claude") return withFallback(claudeBrain, withFallback(sarvamBrain, groqBrain));
   if (choice === "claude") return claudeBrain;
   if (choice === "gemini") return geminiBrain;
   if (choice === "sarvam") return sarvamBrain;

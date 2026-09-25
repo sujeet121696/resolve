@@ -51,7 +51,7 @@
 **Record here (run Aug 20, 2026):**
 - MCP server attached: **yes** — `dodopayments-mcp` (stdio via npx), Claude Code as client
 - Refund tool present: **not as a dedicated tool** — server exposes `search_docs` + `execute` (sandboxed TypeScript against the SDK); refund done via `client.refunds.create()`
-- Refund executed + visible in dashboard: **yes** — `ref_0Nlnuh3ezakalh2cWTeaX`, $5.00 partial refund of the $10.99 test payment, status `succeeded`, customer "Ravi Kumar"
+- Refund executed + visible in dashboard: **yes** — `ref_0Nlnuh3ezakalh2cWTeaX`, $5.00 partial refund of the $10.99 test payment, status `succeeded`, customer "Sujeet Kumar"
 - Full refund hit `409 Insufficient funds in wallet` (test-mode fees leave the merchant wallet below the full payment amount) → partial refund within balance worked. **Demo note: seed several test payments first so the wallet can cover full refunds.**
 - Roundtrip feel: fast (~1–2 s per execute call)
 - Friction found (all solved, keep for build day):

@@ -30,13 +30,17 @@ Accounts you need (all free tiers, personal email):
 | Freshdesk | your-subdomain.freshdesk.com | `FRESHDESK_DOMAIN`, `FRESHDESK_API_KEY` |
 | Gmail app password (OTP email) | myaccount.google.com → App passwords | `SMTP_USER`, `SMTP_PASS`, `OTP_FROM_ADDRESS` |
 | ElevenLabs | elevenlabs.io (key needs ConvAI perms) | `ELEVENLABS_API_KEY`, `ELEVENLABS_AGENT_ID` |
-| Groq (the demo brain) | console.groq.com | `GROQ_API_KEY` |
-| Gemini (fallback brain) | aistudio.google.com | `GEMINI_API_KEY` |
-| ngrok | dashboard.ngrok.com | `ngrok config add-authtoken <token>` once; static domain goes in `PUBLIC_BASE_URL` |
+| Anthropic (the production brain) | platform.claude.com | `ANTHROPIC_API_KEY` |
+| Sarvam AI (1st fallback brain) | indus.sarvam.ai | `SARVAM_API_KEY` |
+| Groq (2nd fallback brain) | console.groq.com | `GROQ_API_KEY` |
+| Gemini (legacy fallback, optional) | aistudio.google.com | `GEMINI_API_KEY` |
+| Cloudflare Tunnel | dash.cloudflare.com | named tunnel + `cloudflared-config.yml`; its hostname goes in `PUBLIC_BASE_URL` (ngrok also works) |
 
-Also set: `BRAIN=auto` (Groq primary, Gemini fallback), `TOOLS_TOKEN` (any random
-hex — `openssl rand -hex 16`), `OTP_DEMO_REDIRECT_TO=<your inbox>` (OTP mail for
-`@example.com` demo customers lands there).
+Also set: `BRAIN=auto-claude` (Claude primary, Sarvam then Groq fallback —
+the production default since Sept 2026; `BRAIN=auto` still works as the
+no-Anthropic-key dev fallback, Groq primary + Sarvam fallback), `TOOLS_TOKEN`
+(any random hex — `openssl rand -hex 16`), `OTP_DEMO_REDIRECT_TO=<your inbox>`
+(OTP mail for `@example.com` demo customers lands there).
 
 ---
 
@@ -48,16 +52,15 @@ Order matters only in that the tunnel needs the server. Two terminals:
 # Terminal 1 — the orchestrator (port 3000)
 npm run dev
 
-# Terminal 2 — the public tunnel (static domain auto-attaches)
-ngrok http 3000
+# Terminal 2 — the public tunnel (hostname comes from cloudflared-config.yml)
+cloudflared tunnel --config cloudflared-config.yml run
 ```
 
 Health checks:
 
 ```bash
 curl http://localhost:3000/health                      # → {"ok":true,...}
-curl https://<your-static-domain>/health \
-  -H "ngrok-skip-browser-warning: true"                # → same, through the tunnel
+curl https://<your-tunnel-domain>/health            # → same, through the tunnel (error 1033 = tunnel down)
 ```
 
 Open the app: **http://localhost:3000/app** (the root `/` redirects there) —
@@ -87,7 +90,7 @@ API calls to :3000).
 npm run seed
 ```
 
-Creates (idempotently): 2 Dodo products, 3 customers (Ravi, Priya, Arjun),
+Creates (idempotently): 2 Dodo products, 3 customers (Sujeet, Priya, Arjun),
 Freshdesk tickets, and **checkout links** for any missing payments.
 
 **Pay each printed link manually** — card `4242 4242 4242 4242`, any future
@@ -114,12 +117,12 @@ definitions, or system prompt change. No need before every call.
 
 ## 5. Run a demo call (the 90-second happy path)
 
-1. Server + ngrok running, ops view open (section 2).
+1. Server + tunnel running, ops view open (section 2).
 2. Fresh ticket + payment in place (section 3, or section 6 for repeats).
 3. Open the agent in ElevenLabs → **Preview** (top-right toolbar) → start the call.
 4. Speak the flow:
    - Agent greets → say you want a refund.
-   - Give the email: **ravi.test@example.com** (speak it slowly; email capture
+   - Give the email: **sujeet6623@gmail.com** (speak it slowly; email capture
      is the known weak spot — the agent re-asks if unsure).
    - Agent reads the case back → confirm.
    - OTP arrives at your `OTP_DEMO_REDIRECT_TO` inbox → read the 6 digits aloud.
@@ -128,7 +131,7 @@ definitions, or system prompt change. No need before every call.
 5. Verify: ops view shows the full chain ending in `case.resolved`; the refund
    appears in the Dodo **test-mode** dashboard; the ticket has a private note.
 
-**Call #2 (the guard says no):** same flow as **priya.test@example.com** —
+**Call #2 (the guard says no):** same flow as **priya@example.com** —
 ₹18,999 is over the auto-limit and confidence is low → guard denies, agent
 escalates to a human instead of paying. Denials don't burn a payment.
 
@@ -140,10 +143,10 @@ needed. Requires the agent to allow unauthenticated widget calls
 ### 5b. Run the same demo by chat (no voice)
 
 1. Open **http://localhost:3000/app/chat**.
-2. Type the email (`ravi.test@example.com` or `priya.test@example.com`).
+2. Type the email (`sujeet6623@gmail.com` or `priya@example.com`).
 3. `yes` to confirm the case → OTP lands in `OTP_DEMO_REDIRECT_TO` → type the
    6 digits → `yes` to proceed.
-4. Ravi → refund + reference; Priya → denial + urgent escalation, and a
+4. Sujeet → refund + reference; Priya → denial + urgent escalation, and a
    follow-up note fires on ticket after `ESCALATION_FOLLOWUP_MINUTES` (2 in
    demo config — don't restart the server in that window, the timer is
    in-process).
@@ -161,7 +164,7 @@ npm run seed:repeat                  # return take: nothing returned yet → RMA
 npm run seed:repeat -- --expired     # policy take: delivered 40 days ago → human
 ```
 
-Mints ONE fresh Ravi ticket (next ORD number) bound to his newest un-refunded
+Mints ONE fresh Sujeet ticket (next ORD number) bound to his newest un-refunded
 payment. Errors out if he has no unspent payment — pay a checkout link first
 (section 3). Then just make the call again (section 5).
 
@@ -255,7 +258,7 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST localhost:3000/tools/resolve-ca
 
 # With the token, but lying about amount and verification:
 curl -s -X POST localhost:3000/tools/get-context -H "Content-Type: application/json" \
-  -H "x-resolve-token: $TOK" -d '{"conversation_id":"atk-1","email":"priya.test@example.com"}'
+  -H "x-resolve-token: $TOK" -d '{"conversation_id":"atk-1","email":"priya@example.com"}'
 curl -s -X POST localhost:3000/tools/resolve-case -H "Content-Type: application/json" \
   -H "x-resolve-token: $TOK" \
   -d '{"conversation_id":"atk-1","amount":5000000,"verified":true,"override":"admin"}'
@@ -278,7 +281,7 @@ followed by `guard.denied` on the ops view. An agent never audits itself.
 | Dodo dashboard shows "No Payments Available" | You're in **Live mode** — flip the Test Mode toggle in the sidebar. |
 | Payment link says expired | Links live only hours. `npm run seed` mints fresh ones. |
 | Voice tools return 401 | `TOOLS_TOKEN` mismatch — re-run `npm run setup:voice` after changing it. |
-| Voice tools time out | ngrok not running, or `PUBLIC_BASE_URL` ≠ the active tunnel domain. |
+| Voice tools time out | tunnel not running (error 1033), or `PUBLIC_BASE_URL` ≠ the active tunnel domain. |
 | `Gemini 429` in events | Gemini free tier is 20 requests/day — that's why it's the fallback; `BRAIN=auto` already prefers Groq. |
 | Agent resolves nothing / "already resolved" | The newest ticket was already handled — `npm run seed:repeat` for a fresh one. |
 | Agent arranges a return instead of refunding | Working as designed: physical item, nothing returned yet. For the refund take use `npm run seed:repeat -- --returned`, or scan the parcel in (section 6b step 3). |
@@ -322,7 +325,7 @@ ref_0Nm04yFZaggQ6vTgCV2lY, idempotent on re-fire) and via the WEB CHAT at /app
 (ticket #23, refund ref_0Nm062EU5pfx2dFlWLGz2). Each run SPENDS the payment in
 #1001's Note — per repeat: edit the Note to a fresh FREE payment id
 (`npx tsx tmp-dodo-list.ts`), then mint a ticket with `npx tsx tmp-shopify-e2e.ts`
-(creates a Ravi ticket for ORD-1001 + pre-marks the return received).
+(creates a Sujeet ticket for ORD-1001 + pre-marks the return received).
 
 Per-order recipe (repeat for every order the demo should find):
 

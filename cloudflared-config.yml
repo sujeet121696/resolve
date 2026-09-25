@@ -1,0 +1,7 @@
+tunnel: b792e042-910a-47d2-bb15-38296322c12b
+credentials-file: /Users/sujeet.s/.cloudflared/b792e042-910a-47d2-bb15-38296322c12b.json
+
+ingress:
+  - hostname: resolve.kharidwise.com
+    service: http://localhost:3000
+  - service: http_status:404

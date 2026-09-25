@@ -26,6 +26,14 @@ export interface RefundResult {
   is_partial: boolean;
 }
 
+/** Provider-neutral plan-change outcome — same "trust the response, not the intent" rule as RefundResult. */
+export interface PlanChangeResult {
+  subscription_id: string;
+  new_product_id: string;
+  charged_amount: number; // minor units — what was actually billed (0 for a pure downgrade/schedule)
+  currency: string;
+}
+
 export interface PaymentProvider {
   /** Which implementation is live — shown on the ops view. */
   name: "dodo";
@@ -37,6 +45,27 @@ export interface PaymentProvider {
     paymentId: string,
     opts?: { amount?: number; reason?: string },
   ): Promise<RefundResult>;
+  /**
+   * The exact number the guard approves — never the intent. Mirrors
+   * createRefund's contract: the caller trusts this response, not a guess.
+   */
+  previewPlanChange(
+    subscriptionId: string,
+    newProductId: string,
+  ): Promise<{ amount: number; currency: string }>;
+  /** Executes an already-guard-approved plan change. Charges the saved payment method directly. */
+  changePlan(subscriptionId: string, newProductId: string): Promise<PlanChangeResult>;
+  /**
+   * Read one payment's charge facts — what resolve-case's pre-refund
+   * cross-check compares against the approved amount. Optional: a provider
+   * without a read API simply leaves the cross-check unanswered (it degrades
+   * to proceeding; the refund call itself remains the authoritative gate).
+   */
+  getPayment?(paymentId: string): Promise<{
+    total_amount?: number | null;
+    currency?: string | null;
+    status?: string | null;
+  }>;
 }
 
 export function getPayments(): PaymentProvider {

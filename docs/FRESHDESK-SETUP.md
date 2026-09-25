@@ -45,17 +45,17 @@ Expect HTTP 200 with JSON. A 403 usually means step 2.1 was skipped.
 npm run seed
 ```
 
-Creates the demo tickets (Ravi's broken-order case, Priya's high-value case)
+Creates the demo tickets (Sujeet's broken-order case, Priya's high-value case)
 with order details and a live-looked-up un-refunded Dodo payment id in the
 body — so seed **Dodo first** (see DODO-SETUP.md), then Freshdesk.
 
-Per demo run afterwards: `npm run seed:repeat` (fresh Ravi ticket, next ORD-10xx).
+Per demo run afterwards: `npm run seed:repeat` (fresh Sujeet ticket, next ORD-10xx).
 
 ## 6. Verify
 
 - Freshdesk dashboard shows the tickets with order details in the body.
 - `POST /chat` flow or a voice call finds the customer by email
-  (`ravi.test@example.com`) and reads facts from the ticket.
+  (`sujeet6623@gmail.com`) and reads facts from the ticket.
 
 ## Gotchas
 
