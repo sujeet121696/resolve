@@ -117,7 +117,18 @@ export async function escalateCase(
     return { escalated: false, follow_up_minutes: FOLLOWUP_MINUTES, note: "Escalation skipped — no helpdesk." };
   }
 
-  await helpdesk.updateTicket(ticketNumber, { priority: 4 });
+  // Route as well as raise: the escalation should land assigned in the right
+  // queue, not just glow urgent in the unassigned pile. Group/agent ids are
+  // account-specific, so they come from .env (skipped when unset) — the type
+  // is only set for refund claims because "Refund" is a stock Freshdesk type.
+  const groupId = Number(process.env.FRESHDESK_ESCALATION_GROUP_ID);
+  const agentId = Number(process.env.FRESHDESK_ESCALATION_AGENT_ID);
+  await helpdesk.updateTicket(ticketNumber, {
+    priority: 4,
+    ...(Number.isFinite(groupId) && groupId > 0 ? { group_id: groupId } : {}),
+    ...(Number.isFinite(agentId) && agentId > 0 ? { responder_id: agentId } : {}),
+    ...(facts.claim_type === "refund" ? { type: "Refund" } : {}),
+  });
   await helpdesk.addNote(ticketNumber, briefingHtml(facts, proposal, verdict));
   emitEvent("escalation.raised", `Ticket #${ticketNumber} → URGENT with specialist briefing`, {
     guard_reason: verdict.reason,

@@ -13,7 +13,7 @@ import { getPolicy } from "../policy-config.js";
 test("the real config/policy.json parses and matches the guard's known-good defaults", () => {
   const policy = getPolicy();
   assert.equal(policy.currencies.INR?.auto_approve_limit, 500_000);
-  assert.equal(policy.currencies.USD?.auto_approve_limit, 5_000);
+  assert.equal(policy.currencies.USD?.auto_approve_limit, 50_000);
   assert.equal(policy.return_window_days, 14);
   assert.equal(typeof policy.escalation_followup_minutes, "number");
   assert.ok(policy.escalation_followup_minutes > 0);

@@ -59,10 +59,15 @@ export async function getTicket(ticketId: number): Promise<Ticket> {
   return fd<Ticket>(`/tickets/${ticketId}`);
 }
 
-/** Update ticket fields (priority 1 low → 4 urgent; status 2 open → 3 pending). */
+/**
+ * Update ticket fields (priority 1 low → 4 urgent; status 2 open → 3 pending).
+ * group_id / responder_id / type route the ticket to the right queue and
+ * specialist — Freshdesk rejects unknown ids/choices with a 400, so callers
+ * only pass values read from config, never invented ones.
+ */
 export async function updateTicket(
   ticketId: number,
-  fields: { priority?: 1 | 2 | 3 | 4; status?: number },
+  fields: { priority?: 1 | 2 | 3 | 4; status?: number; group_id?: number; responder_id?: number; type?: string },
 ): Promise<Ticket> {
   return fd<Ticket>(`/tickets/${ticketId}`, {
     method: "PUT",
