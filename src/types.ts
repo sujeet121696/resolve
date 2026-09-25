@@ -1,6 +1,21 @@
 // Shared contracts. The most important one is CaseFacts — the ONLY thing the
 // Policy-Guard ever sees (DESIGN.md decision 4: structured fields, never transcript).
 
+/**
+ * Fulfilment states where the order NEVER LEFT the warehouse (Shopify
+ * displayFulfillmentStatus). Nothing is with the customer, so no delivery date
+ * is real and no return can be owed — the cancel-before-ship case. One
+ * definition shared by the Shopify adapter, the context builder and the guard,
+ * so "not shipped" cannot mean different things in different places. Lives
+ * here (not oms.ts) because this file imports nothing — every consumer can use
+ * it without a runtime cycle.
+ */
+export function neverShipped(status?: string): boolean {
+  if (!status) return false;
+  const s = status.toUpperCase();
+  return s === "UNFULFILLED" || s === "IN_PROGRESS";
+}
+
 export interface CaseFacts {
   ticket_id: string;
   order_id: string;
@@ -9,6 +24,25 @@ export interface CaseFacts {
   payment_id?: string; // Dodo payment behind the order — required for refund actions
 
   claim_type: "refund" | "plan_change" | "other";
+
+  /**
+   * Order ↔ caller cross-check (case-context.ts): does the order the ticket
+   * names belong to the OTP-verified email, per the order system's own
+   * records? "unknown" means the platform could not answer (missing data, API
+   * failure) and is never treated as a mismatch. Always recorded and audited;
+   * turning a mismatch into a denial is the guard's ownership_mismatch hard
+   * check, gated by OWNERSHIP_ENFORCE=true.
+   */
+  ownership?: "verified" | "mismatch" | "unknown";
+
+  /**
+   * The order platform's fulfilment state (Shopify displayFulfillmentStatus:
+   * UNFULFILLED / IN_PROGRESS / FULFILLED / ON_HOLD …). Drives the return gate:
+   * an order that never shipped has no parcel to wait for (cancel-before-ship
+   * refunds proceed directly), ON_HOLD goes to a human. Absent → the guard
+   * falls back to the plain returnable-physical rule.
+   */
+  fulfillment_status?: string;
 
   /** Dodo subscription behind a plan_change claim — required for that action. */
   subscription_id?: string;

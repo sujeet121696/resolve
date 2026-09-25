@@ -318,6 +318,65 @@ export async function resolveCase(
     };
   }
 
+  // Payment cross-check — the last look before money moves. The payment id
+  // rides in on the order's note, so before firing a refund against it, ask
+  // the provider what that charge actually is: it must be a SUCCEEDED charge,
+  // in the SAME currency, that COVERS the approved amount (>=, not equality —
+  // a charge can legitimately exceed the order; refunding more than was ever
+  // charged is the direction that must be impossible). Catches a mis-linked
+  // payment id before it becomes a wrong refund. A provider READ failure
+  // degrades to proceeding — the refund call itself remains the authoritative
+  // gate and fails safely above — but a real mismatch is a denial with a
+  // human brief, never a money call.
+  const provider = getPayments();
+  if (provider.getPayment) {
+    let charge: Awaited<ReturnType<NonNullable<typeof provider.getPayment>>> | undefined;
+    try {
+      charge = await provider.getPayment(facts.payment_id!);
+    } catch (err) {
+      emitEvent(
+        "case.warn",
+        `Payment cross-check unavailable for ${facts.payment_id} (proceeding — the refund call is still the gate): ${(err as Error).message}`,
+      );
+    }
+    if (charge) {
+      const covers = (charge.total_amount ?? 0) >= facts.amount;
+      const sameCurrency = (charge.currency ?? "") === facts.currency;
+      const succeeded = charge.status === "succeeded";
+      if (!covers || !sameCurrency || !succeeded) {
+        const reason =
+          `hard check 'payment_mismatch': payment ${facts.payment_id} is ` +
+          `${charge.total_amount ?? "?"} ${charge.currency ?? "?"} (${charge.status ?? "?"}) — ` +
+          `cannot back the approved ${facts.amount} ${facts.currency} refund`;
+        emitEvent("guard.denied", reason, { hard_check: "payment_mismatch", ticket_id: facts.ticket_id });
+        const denyVerdict: GuardVerdict = {
+          decision: "deny",
+          reason,
+          hard_check_failed: "payment_mismatch",
+        };
+        let escalationNote = "";
+        try {
+          const esc = await escalateCase(facts, proposal, denyVerdict);
+          escalationNote = ` ${esc.note}`;
+        } catch (err) {
+          emitEvent("case.warn", `Escalation failed (payment-mismatch denial stands): ${(err as Error).message}`);
+        }
+        return {
+          ticket_id: facts.ticket_id,
+          outcome: "denied",
+          proposal,
+          verdict: denyVerdict,
+          note: `Refund blocked before execution: ${reason}.${escalationNote}`,
+        };
+      }
+      emitEvent(
+        "payment.crosscheck",
+        `Payment ${facts.payment_id} verified: ${charge.total_amount} ${charge.currency} succeeded charge covers the approved ${facts.amount} ${facts.currency}`,
+        { ticket_id: facts.ticket_id, payment_id: facts.payment_id },
+      );
+    }
+  }
+
   // Approved refund — record first, then fire the money call.
   beginAction(facts.ticket_id, "refund");
   emitEvent("action.begin", `Refund authorized for ${facts.ticket_id} — firing Dodo`, {

@@ -254,3 +254,52 @@ test("a non-refund claim proposed as escalate is not run through the refund hard
   // hard check does not. Reaching the brain is the point of this test.
   assert.match(verdict.reason, /^\[mock\]/);
 });
+
+// --- Fulfilment-state gate (cancel-before-ship and on-hold) ---
+//
+// The order platform's own fulfilment state refines the return gate: an order
+// that never left the warehouse has no parcel to bring back, so holding its
+// refund for a return would wait on a parcel that does not exist. ON_HOLD is
+// the platform flagging the order itself — that is a human's case.
+
+test("an UNFULFILLED physical order owes no parcel — the refund is not held for a return", async () => {
+  const facts = baseFacts({
+    item_type: "physical",
+    return_status: "not_started",
+    fulfillment_status: "UNFULFILLED",
+    delivered_at: isoDaysAgo(1),
+  });
+  const verdict = await guardCheck(proposal(facts), { verified: true });
+  assert.notEqual(verdict.hard_check_failed, "awaiting_return");
+  assert.equal(verdict.decision, "approve"); // clean facts otherwise → mock brain approves
+});
+
+test("an IN_PROGRESS order is treated the same as unfulfilled — nothing has shipped", async () => {
+  const facts = baseFacts({
+    item_type: "physical",
+    return_status: "not_started",
+    fulfillment_status: "IN_PROGRESS",
+    delivered_at: isoDaysAgo(1),
+  });
+  const verdict = await guardCheck(proposal(facts), { verified: true });
+  assert.notEqual(verdict.hard_check_failed, "awaiting_return");
+});
+
+test("a FULFILLED physical order still returns first — the parcel exists and comes back before money", async () => {
+  const facts = baseFacts({
+    item_type: "physical",
+    return_status: "not_started",
+    fulfillment_status: "FULFILLED",
+    delivered_at: isoDaysAgo(1),
+  });
+  const verdict = await guardCheck(proposal(facts), { verified: true });
+  assert.equal(verdict.decision, "deny");
+  assert.equal(verdict.hard_check_failed, "awaiting_return");
+});
+
+test("an ON_HOLD order is a hard deny to a human, whatever the amount", async () => {
+  const facts = baseFacts({ fulfillment_status: "ON_HOLD", amount: 10 });
+  const verdict = await guardCheck(proposal(facts), { verified: true });
+  assert.equal(verdict.decision, "deny");
+  assert.equal(verdict.hard_check_failed, "order_on_hold");
+});

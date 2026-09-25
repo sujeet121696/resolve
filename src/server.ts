@@ -10,6 +10,7 @@ import { resolveCase } from "./resolve-case.js";
 import { markReturnReceived } from "./returns.js";
 import { handleChatMessage } from "./chat.js";
 import { dashboardMetrics } from "./metrics.js";
+import { caseBrief } from "./case-brief.js";
 import { voiceFreshdeskRelay } from "./voice-freshdesk-relay.js";
 import { admin } from "./admin.js";
 import { rehydrateFollowUps } from "./agents/escalation.js";
@@ -302,6 +303,19 @@ tools.post("/resolve-case", async (req, res) => {
     // read aloud or shown as-is.
     emitEvent("tools.error", `resolve-case threw for conversation ${conversation_id}: ${(err as Error).message}`);
     res.status(500).json({ outcome: "error", message: PROVIDER_ERROR_VOICE });
+  }
+});
+
+// Read-only per-ticket brief for the Freshdesk sidebar app (fdk-app/) — what
+// Resolve did on this ticket: guard rulings, RMA state, idempotency record,
+// related audit events. Same token guard as the rest of /tools.
+tools.get("/case-brief", (req, res) => {
+  const ticketId = String(req.query.ticket_id ?? "").trim();
+  if (!ticketId) return res.status(400).json({ error: "ticket_id required" });
+  try {
+    res.json(caseBrief(ticketId));
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
   }
 });
 

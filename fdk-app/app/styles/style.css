@@ -1,0 +1,41 @@
+/* Resolve case-brief sidebar — matches Freshdesk's light UI. */
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font: 13px/1.5 -apple-system, "Segoe UI", system-ui, sans-serif;
+  color: #12344d;
+  background: #fff;
+}
+#root { padding: 10px 12px 14px; }
+.head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.brand { font-weight: 700; font-size: 14px; }
+.ghost {
+  border: 1px solid #cfd7df; background: #fff; color: #475867;
+  border-radius: 6px; padding: 2px 8px; cursor: pointer; font-size: 13px;
+}
+.dim { color: #7a8a99; }
+.err { color: #c82124; }
+.row { margin: 4px 0; }
+.row b { font-weight: 600; }
+.pills { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
+.pill {
+  font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 10px;
+  border: 1px solid #cfd7df; color: #475867;
+}
+.pill.ok { color: #00795b; border-color: #00795b; }
+.pill.bad { color: #c82124; border-color: #c82124; }
+.pill.warn { color: #b46000; border-color: #b46000; }
+.section { margin-top: 10px; padding-top: 8px; border-top: 1px solid #ebeff3; }
+.section h4 { margin: 0 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: #7a8a99; }
+.events { max-height: 180px; overflow-y: auto; }
+.ev { padding: 3px 0; border-bottom: 1px solid #f5f7f9; }
+.ev .ts { color: #7a8a99; font-size: 11px; }
+.ev .ty { font-weight: 600; font-size: 11px; }
+.ev .msg { font-size: 12px; }
+.action-btn {
+  width: 100%; margin-top: 6px; padding: 6px 10px; border: none; border-radius: 6px;
+  background: #2c5cc5; color: #fff; font-weight: 600; cursor: pointer; font-size: 13px;
+}
+.action-btn:disabled { opacity: 0.6; cursor: default; }
+.action-btn.confirm { background: #b46000; }
+.note { font-size: 11px; color: #7a8a99; margin-top: 4px; }

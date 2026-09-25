@@ -10,6 +10,7 @@ function order(over: Partial<ShopifyOrder> = {}): ShopifyOrder {
   return {
     name: "#1101",
     createdAt: "2026-08-01T10:00:00Z",
+    displayFulfillmentStatus: "FULFILLED",
     note: "dodo_payment_id: pay_abc123",
     currentTotalPriceSet: { shopMoney: { amount: "1499.00", currencyCode: "INR" } },
     fulfillments: [],
@@ -18,9 +19,16 @@ function order(over: Partial<ShopifyOrder> = {}): ShopifyOrder {
   };
 }
 
-test("an unfulfilled order falls back to its order date, so it can still expire", () => {
+test("a shipped order without a fulfilment record falls back to its order date, so it can still expire", () => {
   const rec = toOrderRecord("ORD-1101", order());
   assert.equal(rec.delivered_at, "2026-08-01");
+});
+
+test("a never-shipped order carries NO delivery date — nothing is with the customer", () => {
+  for (const status of ["UNFULFILLED", "IN_PROGRESS"]) {
+    const rec = toOrderRecord("ORD-1101", order({ displayFulfillmentStatus: status }));
+    assert.equal(rec.delivered_at, undefined, status);
+  }
 });
 
 test("a fulfilment date wins over the order date", () => {

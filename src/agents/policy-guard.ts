@@ -7,7 +7,7 @@
 //   2. Judgment call: the brain (mock or Claude) weighs history + confidence.
 //      Only reached when every hard check passes.
 
-import type { GuardVerdict, ResolutionProposal } from "../types.js";
+import { neverShipped, type GuardVerdict, type ResolutionProposal } from "../types.js";
 import { getBrain } from "../brain.js";
 import { emitEvent } from "../events.js";
 import { getPolicy, limitFor } from "../policy-config.js";
@@ -17,16 +17,29 @@ import { getPolicy, limitFor } from "../policy-config.js";
 // when set.
 const RETURN_WINDOW_DAYS = Number(process.env.RETURN_WINDOW_DAYS ?? getPolicy().return_window_days);
 
+// Ownership enforcement is opt-in: the check itself always runs at context
+// load and lands in the facts + audit trail, but denying on it presumes the
+// order platform's email records are trustworthy. Flip on with
+// OWNERSHIP_ENFORCE=true once they are.
+const OWNERSHIP_ENFORCE = /^true$/i.test(process.env.OWNERSHIP_ENFORCE ?? "");
+
 /**
  * Is a physical parcel still owed to us on this order?
  *
  * True only for a returnable item that hasn't come back. Digital goods and
  * non-returnable physical goods (perishable, opened hygiene, custom-made,
  * final sale) both carry `not_required` — there is no parcel, so there is
- * nothing to wait for and the refund must not be gated on one.
+ * nothing to wait for and the refund must not be gated on one. An order the
+ * platform says never shipped is the same situation from the other end: the
+ * customer has nothing to send back.
  */
-function returnOwed(facts: { item_type: string; return_status: string }): boolean {
+function returnOwed(facts: {
+  item_type: string;
+  return_status: string;
+  fulfillment_status?: string;
+}): boolean {
   if (facts.item_type !== "physical") return false;
+  if (neverShipped(facts.fulfillment_status)) return false;
   return facts.return_status !== "completed" && facts.return_status !== "not_required";
 }
 
@@ -65,6 +78,17 @@ export async function guardCheck(
   if (!ctx.verified) {
     return hardDeny("unverified", "caller has not passed OTP verification");
   }
+  // Second identity check: the caller proved they own the EMAIL (OTP above);
+  // this one is whether the email owns the ORDER, per the order system's own
+  // records (case-context.ts sets it; "unknown" never denies). Ahead of the
+  // money checks on purpose — a case built on someone else's order should not
+  // even be argued about on amount.
+  if (OWNERSHIP_ENFORCE && facts.ownership === "mismatch") {
+    return hardDeny(
+      "ownership_mismatch",
+      `order ${facts.order_id} does not belong to the verified caller's email in the order system`,
+    );
+  }
   if (checkAs === "refund" || checkAs === "plan_change") {
     const limit = limitFor(facts.currency);
     // No ruling for this currency means we cannot say whether the amount is
@@ -86,6 +110,15 @@ export async function guardCheck(
   }
   if (checkAs === "refund" && !facts.payment_id) {
     return hardDeny("no_payment", "refund proposed but no payment is linked to the order");
+  }
+  // ON_HOLD is the order platform saying "something is wrong with this order"
+  // — fraud review, a stuck cancellation, an inventory dispute. Refunding into
+  // that is a human's call, whatever the amount.
+  if (checkAs === "refund" && facts.fulfillment_status?.toUpperCase() === "ON_HOLD") {
+    return hardDeny(
+      "order_on_hold",
+      `order ${facts.order_id} is ON_HOLD in the order system — a hold must be resolved by a human before money moves`,
+    );
   }
   if (checkAs === "plan_change" && (!facts.subscription_id || !facts.requested_product_id)) {
     return hardDeny(

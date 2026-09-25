@@ -1,0 +1,23 @@
+{
+  "getCaseBrief": {
+    "schema": {
+      "method": "GET",
+      "host": "resolve.kharidwise.com",
+      "path": "/tools/case-brief?ticket_id=<%= context.ticket_id %>",
+      "headers": {
+        "x-resolve-token": "<%= iparam.resolve_token %>"
+      }
+    }
+  },
+  "markReturnReceived": {
+    "schema": {
+      "method": "POST",
+      "host": "resolve.kharidwise.com",
+      "path": "/tools/return-received",
+      "headers": {
+        "x-resolve-token": "<%= iparam.resolve_token %>",
+        "Content-Type": "application/json"
+      }
+    }
+  }
+}

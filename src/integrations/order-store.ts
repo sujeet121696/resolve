@@ -39,4 +39,12 @@ export const localOrderSource: OrderSource = {
   name: "local",
   configured: () => Object.keys(load()).length > 0,
   getOrder: async (orderId) => load()[orderId],
+  // Local records carry the customer email directly, so ownership is a plain
+  // comparison. A record without an email cannot answer — "unknown", not
+  // "mismatch" (same degradation rule as the Shopify source).
+  verifyOwnership: async (orderId, email) => {
+    const owner = load()[orderId]?.customer.email?.trim().toLowerCase();
+    if (!owner) return "unknown";
+    return owner === email.trim().toLowerCase() ? "verified" : "mismatch";
+  },
 };

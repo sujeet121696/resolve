@@ -161,4 +161,10 @@ export const dodoPayments: PaymentProvider = {
   createRefund,
   previewPlanChange,
   changePlan,
+  // Narrowed to the three charge facts the pre-refund cross-check reads, so
+  // the seam never leaks Dodo's full payment object into provider-neutral code.
+  getPayment: async (paymentId) => {
+    const p = await getPayment(paymentId);
+    return { total_amount: p.total_amount, currency: p.currency, status: p.status };
+  },
 };

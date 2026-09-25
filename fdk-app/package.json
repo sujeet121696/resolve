@@ -1,0 +1,17 @@
+{
+  "name": "resolve-freshdesk-sidebar",
+  "private": true,
+  "description": "Resolve case-brief sidebar app for Freshdesk (FDK custom app) — shows what Resolve did on the open ticket",
+  "scripts": {
+    "fdk:run": "fdk run",
+    "fdk:validate": "fdk validate",
+    "fdk:pack": "fdk pack"
+  },
+  "devDependencies": {
+    "fdk": "https://cdn.freshdev.io/fdk/latest.tgz"
+  },
+  "volta": {
+    "node": "18.20.4",
+    "npm": "9.9.4"
+  }
+}

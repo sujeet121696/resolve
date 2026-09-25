@@ -57,6 +57,13 @@ export interface OrderRecord {
   /** ISO date the customer received it. The return window runs from here. */
   delivered_at?: string;
   /**
+   * The platform's own fulfilment state (Shopify: FULFILLED / UNFULFILLED /
+   * IN_PROGRESS / ON_HOLD …). A guard input since Sept 25: never-shipped
+   * orders skip the return gate (types.ts neverShipped — cancel-before-ship),
+   * ON_HOLD is a hard deny on refund claims.
+   */
+  fulfillment_status?: string;
+  /**
    * Dodo subscription behind a plan_change claim. Structured, same as
    * payment_id — never regexed from the ticket body (this file's whole point).
    */
@@ -79,6 +86,23 @@ export interface OrderSource {
   configured(): boolean;
   /** Undefined when the id is unknown, which the caller treats as incomplete facts. */
   getOrder(orderId: string): Promise<OrderRecord | undefined>;
+  /**
+   * Does this order belong to this (already OTP-verified) email, per the order
+   * system's own records? "unknown" when the platform cannot answer — missing
+   * data, API failure — and callers must treat unknown as "cannot enforce",
+   * never as a mismatch. Optional: a source without an ownership signal simply
+   * leaves the check unanswered.
+   */
+  verifyOwnership?(orderId: string, email: string): Promise<"verified" | "mismatch" | "unknown">;
+  /**
+   * The (already OTP-verified) email's newest order id, per the order system's
+   * own records — the fallback case-context.ts uses when a ticket names NO
+   * order id, so a first-time caller gets a real case instead of a dead end.
+   * Ownership is guaranteed by construction: the id comes from a search over
+   * that email's orders, never from anything the caller says. Undefined when
+   * the email has no orders or the platform cannot answer.
+   */
+  latestOrderIdForEmail?(email: string): Promise<string | undefined>;
 }
 
 export function getOrderSource(): OrderSource {

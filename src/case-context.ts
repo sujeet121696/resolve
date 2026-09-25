@@ -1,11 +1,13 @@
 // get_context (Step 6) — builds the case from two systems of record: the
 // helpdesk for the complaint, the order source for the facts.
 //
-// The ticket contributes exactly one fact-bearing token: the order id. Amount,
-// payment reference, item type, returnability, delivery date and customer
-// history all come from the order source (oms.ts); where the parcel is comes
-// from the RMA store (returns.ts). Nothing the customer writes in the ticket —
-// and nothing they say in the conversation — can move any of them.
+// The order itself is the verified email's LATEST order per the order system's
+// own records — the ticket's ORD-xxxx display number is only a fallback for
+// when the order source cannot answer. Amount, payment reference, item type,
+// returnability, delivery date and customer history all come from the order
+// source (oms.ts); where the parcel is comes from the RMA store (returns.ts).
+// Nothing the customer writes in the ticket — and nothing they say in the
+// conversation — can move any of them.
 //
 // This used to regex the order details out of the ticket BODY, which made
 // customer-supplied text an input to the guard's numbers and forced the code to
@@ -19,7 +21,7 @@
 // narratable summary. resolve_case later reads the facts from this store, so
 // nothing the caller says can inflate the amount or swap the payment.
 
-import type { CaseFacts } from "./types.js";
+import { neverShipped, type CaseFacts } from "./types.js";
 import type { OrderRecord } from "./oms.js";
 import type { ReturnRecord } from "./returns.js";
 import { getHelpdesk } from "./helpdesk.js";
@@ -44,8 +46,14 @@ export function classifyReturn(
   itemType: CaseFacts["item_type"],
   returnable: boolean,
   rma: Pick<ReturnRecord, "state"> | undefined,
+  fulfillmentStatus?: string,
 ): CaseFacts["return_status"] {
   if (itemType === "digital" || !returnable) return "not_required";
+  // Never shipped → the customer has nothing to send back, whatever the RMA
+  // store says. Without this the facts self-contradicted (an UNFULFILLED order
+  // carrying "return not started"), and the resolution brain rightly escalated
+  // a case the guard would have approved.
+  if (neverShipped(fulfillmentStatus)) return "not_required";
   if (rma) return rma.state === "received" ? "completed" : "requested";
   return "not_started";
 }
@@ -120,11 +128,39 @@ export async function lookupContext(
     }
   }
 
-  // Subject first: it is the field the helpdesk shows in every list view, so a
-  // demo ticket always carries the id there even when the prose is casual.
-  const orderId = (ticket.subject.match(ORDER_ID_RE) ?? ticket.description_text?.match(ORDER_ID_RE))?.[0]?.toUpperCase();
+  // The order is the verified email's LATEST order, per the order system's own
+  // records (Sujeet's call, Sept 25): the ticket's ORD-xxxx is a display number
+  // typed by whoever wrote the ticket, so the order platform's own newest-order
+  // answer for the OTP-verified email outranks it. Ownership holds by
+  // construction — the id comes from a search over that email's orders, never
+  // from anything the caller says or wrote. The ticket-named id survives only
+  // as the fallback for when the order source cannot answer (local OMS, API
+  // down), and any override is audited.
+  const ticketOrderId = (ticket.subject.match(ORDER_ID_RE) ?? ticket.description_text?.match(ORDER_ID_RE))?.[0]?.toUpperCase();
+  let orderId = ticketOrderId;
 
   const orders = getOrderSource();
+
+  if (orders.latestOrderIdForEmail) {
+    const latest = await orders.latestOrderIdForEmail(normalizedEmail);
+    if (latest) {
+      if (ticketOrderId && ticketOrderId !== latest) {
+        emitEvent(
+          "context.order_latest",
+          `Ticket #${ticket.id} names ${ticketOrderId}, but ${normalizedEmail}'s latest order is ${latest} — using the latest (${orders.name})`,
+          { conversation_id: conversationId, ticket_order_id: ticketOrderId, order_id: latest },
+        );
+      } else if (!ticketOrderId) {
+        emitEvent(
+          "context.order_latest",
+          `Ticket #${ticket.id} names no order — using ${latest}, the latest order for ${normalizedEmail} (${orders.name})`,
+          { conversation_id: conversationId, order_id: latest },
+        );
+      }
+      orderId = latest;
+    }
+  }
+
   // An order source that is down, misconfigured or rate-limited must degrade
   // exactly like an unknown order id — never take the call down. A remote source
   // is a network call, so this is the normal case, not the exotic one: the case
@@ -153,9 +189,26 @@ export async function lookupContext(
 
   const itemType = order?.item_type ?? "physical";
   const rma = orderId ? getReturn(orderId) : undefined;
+
+  // Ownership cross-check: the ticket supplied the order id; the order system
+  // confirms the order belongs to the verified email. Recorded as a fact and
+  // audited on every load — never blocks context assembly. Enforcement (deny
+  // at decision time) is the guard's ownership_mismatch hard check, opt-in via
+  // OWNERSHIP_ENFORCE so it can be switched on only once the order platform's
+  // email data is known to be trustworthy.
+  let ownership: CaseFacts["ownership"];
+  if (order && orderId && orders.verifyOwnership) {
+    ownership = await orders.verifyOwnership(orderId, normalizedEmail);
+    emitEvent(
+      ownership === "mismatch" ? "context.ownership_mismatch" : "context.ownership",
+      `Ownership check for ${orderId} vs ${normalizedEmail}: ${ownership} (${orders.name})`,
+      { conversation_id: conversationId, ownership, order_id: orderId },
+    );
+  }
+
   // Unknown order → assume a return is owed rather than waived: the cautious
   // side of the gate, and it cannot fire anyway without a payment to refund.
-  const returnStatus = classifyReturn(itemType, order?.returnable ?? true, rma);
+  const returnStatus = classifyReturn(itemType, order?.returnable ?? true, rma, order?.fulfillment_status);
 
   // "Complete" means the fact this claim type actually needs is present — a
   // payment to refund, or a subscription+target plan to change. Checking
@@ -170,6 +223,7 @@ export async function lookupContext(
     amount: order?.amount_minor ?? 0,
     currency: order?.currency ?? "INR",
     payment_id: order?.payment_id,
+    ownership,
     subscription_id: order?.subscription_id,
     requested_product_id: order?.requested_product_id,
     // Structured signal first (order.requested_product_id — the order record
@@ -184,6 +238,7 @@ export async function lookupContext(
     return_status: returnStatus,
     delivered_at: order?.delivered_at,
     return_window_days: order?.return_window_days,
+    fulfillment_status: order?.fulfillment_status,
     customer_history: {
       tenure_months: monthsSince(order?.customer.since),
       prior_refunds: order?.customer.prior_refunds ?? 0,
@@ -213,6 +268,7 @@ export async function lookupContext(
       payment_id: order?.payment_id,
       item_type: itemType,
       return_status: returnStatus,
+      fulfillment_status: order?.fulfillment_status,
     },
   );
 

@@ -22,7 +22,9 @@
 //                       requester (case-context.ts); tenure and prior refunds
 //                       read as 0. Shopify also cannot backdate
 //                       customer.createdAt, so even WITH the scope a fresh dev
-//                       store would report zero tenure.
+//                       store would report zero tenure. The one exception is
+//                       verifyOwnership below, which FILTERS the order search
+//                       by email without ever reading a customer field.
 //
 // Auth is the client_credentials grant: client id + secret are exchanged for a
 // 24-hour access token, cached in memory only. No long-lived token is stored.
@@ -35,6 +37,7 @@
 // Type-only import: the contract lives in the seam, so there is no runtime cycle
 // between oms.ts and this module (same shape as freshdesk.ts).
 import type { OrderRecord, OrderSource } from "../oms.js";
+import { neverShipped } from "../types.js";
 
 const DOMAIN = () => process.env.SHOPIFY_STORE_DOMAIN;
 const CLIENT_ID = () => process.env.SHOPIFY_CLIENT_ID;
@@ -111,6 +114,8 @@ export interface ShopifyOrder {
   name: string;
   /** When the order was placed — the fallback start of the return window. */
   createdAt: string;
+  /** UNFULFILLED / IN_PROGRESS / FULFILLED / ON_HOLD … — drives the return gate. */
+  displayFulfillmentStatus: string;
   note: string | null;
   currentTotalPriceSet: { shopMoney: { amount: string; currencyCode: string } };
   fulfillments: { createdAt: string }[];
@@ -126,6 +131,7 @@ const ORDER_QUERY = `
       nodes {
         name
         createdAt
+        displayFulfillmentStatus
         note
         currentTotalPriceSet { shopMoney { amount currencyCode } }
         fulfillments(first: 1) { createdAt }
@@ -189,11 +195,16 @@ export function toOrderRecord(orderId: string, node: ShopifyOrder): OrderRecord 
     // read_orders scope has, and it makes the return window start slightly
     // early — the customer-favouring direction.
     //
-    // No fulfilment yet → fall back to the ORDER date. Without this an
-    // unfulfilled order had no start date and so never expired, which let an
-    // arbitrarily old order sail past the return window. Falling back errs on
-    // the cautious side: the window can only start earlier than delivery.
-    delivered_at: (node.fulfillments[0]?.createdAt ?? node.createdAt)?.slice(0, 10),
+    // Never shipped (UNFULFILLED / IN_PROGRESS) → NO delivery date at all:
+    // nothing is with the customer, and inventing one from the order date made
+    // the facts self-contradict ("unfulfilled" + "delivered") — a live case
+    // escalated on exactly that. Any other state without a fulfilment falls
+    // back to the ORDER date, so an old order can still expire the return
+    // window (the cautious side: the window only starts earlier than delivery).
+    delivered_at:
+      node.fulfillments[0]?.createdAt?.slice(0, 10) ??
+      (neverShipped(node.displayFulfillmentStatus) ? undefined : node.createdAt?.slice(0, 10)),
+    fulfillment_status: node.displayFulfillmentStatus,
     customer: { email: "", prior_refunds: 0 },
   };
 }
@@ -219,9 +230,72 @@ async function getOrder(orderId: string): Promise<OrderRecord | undefined> {
   return toOrderRecord(orderId, node);
 }
 
+// Ownership is asked as a SEARCH question, not a field read: the orders search
+// index accepts an `email:` filter under read_orders alone (verified live
+// Sept 25), and the response carries only the order name — so the customer's
+// protected data is still never requested. One narrow yes/no: "is this order
+// among this email's orders?"
+const OWNERSHIP_QUERY = `
+  query orderOwnership($q: String!) {
+    orders(first: 1, query: $q) {
+      nodes { name }
+    }
+  }
+`;
+
+async function verifyOwnership(
+  orderId: string,
+  email: string,
+): Promise<"verified" | "mismatch" | "unknown"> {
+  const digits = orderId.replace(/\D/g, "");
+  const normalized = email.trim().toLowerCase();
+  if (!digits || !normalized) return "unknown";
+  try {
+    const data = await gql<{ orders: { nodes: { name: string }[] } }>(OWNERSHIP_QUERY, {
+      q: `name:${digits} AND email:${normalized}`,
+    });
+    return data.orders.nodes.length > 0 ? "verified" : "mismatch";
+  } catch (err) {
+    // Same degradation rule as getOrder: an API hiccup must read as "cannot
+    // answer", never as an accusation of mismatch.
+    console.warn(`Shopify ownership check failed for ${orderId}: ${(err as Error).message}`);
+    return "unknown";
+  }
+}
+
+// Same search index as verifyOwnership, sorted newest-first: "this email's
+// latest order". Used only as the no-order-id fallback (case-context.ts), so
+// the id is chosen by Shopify's records for the VERIFIED email — ownership by
+// construction, and still no customer field read.
+const LATEST_ORDER_QUERY = `
+  query latestOrderForEmail($q: String!) {
+    orders(first: 1, query: $q, sortKey: CREATED_AT, reverse: true) {
+      nodes { name }
+    }
+  }
+`;
+
+async function latestOrderIdForEmail(email: string): Promise<string | undefined> {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) return undefined;
+  try {
+    const data = await gql<{ orders: { nodes: { name: string }[] } }>(LATEST_ORDER_QUERY, {
+      q: `email:${normalized}`,
+    });
+    // "#1008" → "ORD-1008", the id convention every downstream store keys on.
+    const digits = data.orders.nodes[0]?.name.replace(/\D/g, "");
+    return digits ? `ORD-${digits}` : undefined;
+  } catch (err) {
+    console.warn(`Shopify latest-order lookup failed for ${normalized}: ${(err as Error).message}`);
+    return undefined; // cannot answer → the caller degrades to no-order, never throws
+  }
+}
+
 /** This module as an OrderSource — what getOrderSource() hands the agents. */
 export const shopifyOrderSource: OrderSource = {
   name: "shopify",
   configured: shopifyConfigured,
   getOrder,
+  verifyOwnership,
+  latestOrderIdForEmail,
 };
