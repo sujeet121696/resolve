@@ -618,7 +618,7 @@ body {
   align-items: flex-start;
   gap: 16px;
 }
-.dash-head button {
+.dash-head-right > button {
   background: var(--blue);
   color: var(--btn-fg);
   border: none;
@@ -628,7 +628,7 @@ body {
   cursor: pointer;
   white-space: nowrap;
 }
-.dash-head button:disabled {
+.dash-head-right > button:disabled {
   opacity: 0.6;
   cursor: default;
 }
@@ -700,7 +700,7 @@ body {
 }
 .dash-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 14px;
 }
 .dash-card {
@@ -782,11 +782,20 @@ body {
 .dash-head-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  max-width: 640px;
 }
 .period-toggle {
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
+  padding: 4px 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
 }
 .dash-updated {
   color: var(--dim);
@@ -849,9 +858,21 @@ body {
   border-radius: 12px;
   padding: 3px 12px;
   font-size: 13px;
+  font-family: inherit;
   cursor: pointer;
 }
-.filter-pill.active {
+.period-toggle .filter-pill {
+  background: transparent;
+  border-color: transparent;
+}
+.period-toggle input[type="date"].filter-pill {
+  padding: 2px 8px;
+  color: var(--dim);
+  border: 1px solid var(--border);
+  background: var(--panel);
+}
+.filter-pill.active,
+.period-toggle .filter-pill.active {
   color: var(--blue);
   border-color: var(--blue);
   background: var(--accent-soft);

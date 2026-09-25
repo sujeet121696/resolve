@@ -69,6 +69,22 @@ const fmtDur = (secs: number) => `${Math.floor(secs / 60)}:${String(secs % 60).p
 
 const PAGE_SIZES = [10, 20, 50];
 
+// Friendly names for ElevenLabs' raw conversation sources; filtering still
+// keys on the raw value, only the display changes.
+const SOURCE_LABELS: Record<string, string> = { sip_trunk: "Phone", phone_call: "Phone", widget: "Chat" };
+const srcLabel = (s: string) => SOURCE_LABELS[s] ?? s;
+
+// Time-range presets for every aggregate on the page; "date" (the calendar
+// picker) is the sixth, non-preset option. Default is the last 4 hours.
+const RANGES = [
+  { key: "10m", label: "10 min", query: "minutes=10", heading: "Last 10 minutes" },
+  { key: "1h", label: "1 hour", query: "minutes=60", heading: "Last hour" },
+  { key: "4h", label: "4 hours", query: "minutes=240", heading: "Last 4 hours" },
+  { key: "today", label: "today", query: "period=today", heading: "Today so far" },
+  { key: "all", label: "all time", query: "period=all", heading: "This deployment so far" },
+] as const;
+type RangeKey = (typeof RANGES)[number]["key"] | "date";
+
 export default function Dashboard() {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [error, setError] = useState("");
@@ -76,12 +92,15 @@ export default function Dashboard() {
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(PAGE_SIZES[0]);
   const [sourceFilter, setSourceFilter] = useState("all");
-  const [period, setPeriod] = useState<"today" | "all">("today");
+  const [range, setRange] = useState<RangeKey>("4h");
+  const [date, setDate] = useState(""); // YYYY-MM-DD when the calendar is used
   const [ccy, setCcy] = useState<"usd" | "inr">("usd");
 
   const load = useCallback(() => {
+    const query =
+      range === "date" && date ? `date=${date}` : (RANGES.find((r) => r.key === range) ?? RANGES[2]).query;
     setLoading(true);
-    fetch(`/dashboard-metrics?period=${period}`)
+    fetch(`/dashboard-metrics?${query}`)
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))))
       .then((data) => {
         setMetrics(data);
@@ -89,7 +108,7 @@ export default function Dashboard() {
       })
       .catch((err) => setError(`Could not load metrics: ${err.message} — is the server running?`))
       .finally(() => setLoading(false));
-  }, [period]);
+  }, [range, date]);
 
   useEffect(load, [load]);
 
@@ -139,18 +158,32 @@ export default function Dashboard() {
             ))}
           </div>
           <div className="period-toggle">
-            {(["today", "all"] as const).map((pd) => (
+            {RANGES.map((r) => (
               <button
-                key={pd}
-                className={`filter-pill ${period === pd ? "active" : ""}`}
+                key={r.key}
+                className={`filter-pill ${range === r.key ? "active" : ""}`}
                 onClick={() => {
-                  setPeriod(pd);
+                  setRange(r.key);
                   setPage(0);
                 }}
               >
-                {pd === "today" ? "today" : "all time"}
+                {r.label}
               </button>
             ))}
+            <input
+              type="date"
+              className={`filter-pill ${range === "date" ? "active" : ""}`}
+              value={date}
+              max={new Date().toISOString().slice(0, 10)}
+              onChange={(e) => {
+                setDate(e.target.value);
+                if (e.target.value) {
+                  setRange("date");
+                  setPage(0);
+                }
+              }}
+              title="Show one calendar day"
+            />
           </div>
           <span className="dash-updated">updated {fmtWhen(metrics.generated_at)}</span>
           <button onClick={load} disabled={loading}>
@@ -236,7 +269,7 @@ export default function Dashboard() {
         </tbody>
       </table>
 
-      <h3>{period === "today" ? "Today so far" : "This deployment so far"}</h3>
+      <h3>{range === "date" && date ? `On ${date}` : (RANGES.find((r) => r.key === range) ?? RANGES[2]).heading}</h3>
       <div className="dash-grid">
         <div className="dash-card">
           <h4>🎙️ Voice — {p.voice.provider}</h4>
@@ -303,7 +336,7 @@ export default function Dashboard() {
                   setPage(0);
                 }}
               >
-                {s}
+                {s === "all" ? "all" : srcLabel(s)}
               </button>
             ))}
           </div>
@@ -323,7 +356,7 @@ export default function Dashboard() {
               {pageCalls.map((c, i) => (
                 <tr key={`${c.started_at}-${i}`}>
                   <td>{fmtWhen(c.started_at)}</td>
-                  <td>{c.source}</td>
+                  <td>{srcLabel(c.source)}</td>
                   <td>{c.language}</td>
                   <td>
                     <span className={`call-result ${c.successful}`}>{c.successful}</span>
@@ -348,7 +381,7 @@ export default function Dashboard() {
                 <td colSpan={5}>
                   {sourceFilter === "all"
                     ? `${calls.length} calls (of ${t.voice.calls}) · charges as billed by ElevenLabs`
-                    : `${filtered.length} calls via ${sourceFilter} · charges as billed by ElevenLabs`}
+                    : `${filtered.length} calls via ${srcLabel(sourceFilter)} · charges as billed by ElevenLabs`}
                 </td>
                 <td className="num">{filteredCredits.toLocaleString()}</td>
                 <td className="num">{money(filteredUsd)}</td>
@@ -387,7 +420,7 @@ export default function Dashboard() {
           </div>
         </>
       ) : t.voice ? (
-        <p className="dash-dim">No calls yet today — flip to “all time” to see the full history.</p>
+        <p className="dash-dim">No calls in this time range — try a wider one, or “all time” for the full history.</p>
       ) : (
         <p className="dash-dim">ElevenLabs API unreachable — call table unavailable right now.</p>
       )}

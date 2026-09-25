@@ -157,18 +157,43 @@ function tokenTotals(events: ReturnType<typeof readAudit>) {
   return { calls: usage.length, tokensIn, tokensOut, byModel };
 }
 
-export async function dashboardMetrics(period: "today" | "all" = "all"): Promise<Record<string, unknown>> {
+/**
+ * Time window for the aggregates. Exactly one of these applies, checked in
+ * order: `minutes` (rolling window ending now), `date` (one server-local
+ * calendar day), `period` ("today" = since local midnight, "all" = everything).
+ */
+export interface MetricsWindow {
+  period?: "today" | "all";
+  minutes?: number;
+  date?: string; // YYYY-MM-DD
+}
+
+export async function dashboardMetrics(window: MetricsWindow = {}): Promise<Record<string, unknown>> {
   const pricing = loadPricing();
   const allEvents = readAudit();
-  const since = period === "today" ? new Date(new Date().setHours(0, 0, 0, 0)) : null;
-  // Activity totals follow the period filter; the per-call pricing basis always
+  let since: Date | null = null;
+  let until: Date | null = null;
+  if (Number.isFinite(window.minutes) && (window.minutes as number) > 0) {
+    since = new Date(Date.now() - (window.minutes as number) * 60_000);
+  } else if (window.date && /^\d{4}-\d{2}-\d{2}$/.test(window.date)) {
+    since = new Date(`${window.date}T00:00:00`);
+    until = new Date(since.getTime() + 24 * 3_600_000);
+  } else if (window.period === "today") {
+    since = new Date(new Date().setHours(0, 0, 0, 0));
+  }
+  const windowed = since !== null || until !== null;
+  const inWindow = (iso: string) => {
+    const t = new Date(iso).getTime();
+    return (!since || t >= since.getTime()) && (!until || t < until.getTime());
+  };
+  // Activity totals follow the window filter; the per-call pricing basis always
   // uses all-time averages so the headline $/call never collapses to zero on a
   // fresh morning with no calls yet.
-  const events = since ? allEvents.filter((e) => new Date(e.ts) >= since) : allEvents;
+  const events = windowed ? allEvents.filter((e) => inWindow(e.ts)) : allEvents;
   const count = (type: string) => events.filter((e) => e.type === type).length;
 
   const llm = tokenTotals(events);
-  const llmAll = since ? tokenTotals(allEvents) : llm;
+  const llmAll = windowed ? tokenTotals(allEvents) : llm;
 
   const denialReasons: Record<string, number> = {};
   for (const e of events.filter((ev) => ev.type === "guard.denied")) {
@@ -177,15 +202,15 @@ export async function dashboardMetrics(period: "today" | "all" = "all"): Promise
   }
 
   const cases = count("case.received");
-  const casesAll = since ? allEvents.filter((e) => e.type === "case.received").length : cases;
+  const casesAll = windowed ? allEvents.filter((e) => e.type === "case.received").length : cases;
   const refunds = count("money.refund");
   const voiceAll = await fetchVoiceUsage();
-  // Today's calls are by definition the most recent, so filtering the
+  // Windowed calls are by definition among the most recent, so filtering the
   // DETAIL_LIMIT newest detail rows is accurate at demo scale.
   const voice =
-    voiceAll && since
+    voiceAll && windowed
       ? (() => {
-          const rows = voiceAll.recent_calls.filter((c) => new Date(c.started_at) >= since);
+          const rows = voiceAll.recent_calls.filter((c) => inWindow(c.started_at));
           const secs = rows.reduce((sum, c) => sum + c.duration_secs, 0);
           return {
             calls: rows.length,
@@ -217,7 +242,11 @@ export async function dashboardMetrics(period: "today" | "all" = "all"): Promise
 
   return {
     generated_at: new Date().toISOString(),
-    period,
+    window: window.minutes
+      ? { minutes: window.minutes }
+      : window.date
+        ? { date: window.date }
+        : { period: window.period ?? "all" },
     pricing,
     per_call: {
       avg_call_minutes: avgCallMin,
