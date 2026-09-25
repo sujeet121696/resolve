@@ -7,8 +7,8 @@
       "_note": "500000 minor units = ₹5,000. Anything over this is a hard deny → escalated to a human, never approved by the brain."
     },
     "USD": {
-      "auto_approve_limit": 500000,
-      "_note": "500000 minor units = $5,000. Anything over this is a hard deny → escalated to a human. .env sets AUTO_REFUND_LIMIT_USD=500000 to the same value (env wins when set — keep them in sync)."
+      "auto_approve_limit": 50000,
+      "_note": "50000 minor units = $500. Anything over this is a hard deny → escalated to a human. .env sets AUTO_REFUND_LIMIT_USD=50000 to the same value (env wins when set — keep them in sync)."
     }
   },
 
