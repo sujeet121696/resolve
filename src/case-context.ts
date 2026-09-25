@@ -34,6 +34,10 @@ import { emitEvent } from "./events.js";
 // own prose too, which is how real support tickets reference an order.
 const ORDER_ID_RE = /\bORD-\d+\b/i;
 
+// Subject given to tickets this module creates for a fresh contact; renamed to
+// name the order once lookup has identified it (see below).
+const PLACEHOLDER_SUBJECT = "Support call — details pending";
+
 /**
  * What the return gate keys off. `not_required` is the "skip the gate" status
  * and covers BOTH digital goods and non-returnable physical ones.
@@ -131,7 +135,7 @@ export async function lookupContext(
       // on purpose (see the Helpdesk interface's own comment on why
       // createTicket isn't part of it).
       ticket = await createTicket({
-        subject: "Support call — details pending",
+        subject: PLACEHOLDER_SUBJECT,
         descriptionHtml:
           tickets.length === 0
             ? "New voice/chat contact — no prior ticket on file for this email."
@@ -183,6 +187,21 @@ export async function lookupContext(
         );
       }
       orderId = latest;
+    }
+  }
+
+  // Tickets this module created carry a placeholder subject; once the order is
+  // known, name the ticket after it so the Freshdesk list is scannable. A
+  // rename failure must never take the call down — it just keeps the placeholder.
+  if (orderId && ticket.subject === PLACEHOLDER_SUBJECT) {
+    try {
+      ticket = await helpdesk.updateTicket(ticket.id, {
+        subject: `Support call — ${orderId} (${normalizedEmail})`,
+      });
+    } catch (err) {
+      emitEvent("case.warn", `Could not rename ticket #${ticket.id}: ${(err as Error).message}`, {
+        conversation_id: conversationId,
+      });
     }
   }
 

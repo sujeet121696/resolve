@@ -39,7 +39,7 @@ export interface Helpdesk {
   addNote(ticketId: number, bodyHtml: string, isPrivate?: boolean): Promise<{ id: number }>;
   updateTicket(
     ticketId: number,
-    fields: { priority?: 1 | 2 | 3 | 4; status?: number; group_id?: number; responder_id?: number; type?: string },
+    fields: { priority?: 1 | 2 | 3 | 4; status?: number; group_id?: number; responder_id?: number; type?: string; subject?: string },
   ): Promise<Ticket>;
 }
 

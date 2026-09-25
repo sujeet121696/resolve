@@ -67,7 +67,7 @@ export async function getTicket(ticketId: number): Promise<Ticket> {
  */
 export async function updateTicket(
   ticketId: number,
-  fields: { priority?: 1 | 2 | 3 | 4; status?: number; group_id?: number; responder_id?: number; type?: string },
+  fields: { priority?: 1 | 2 | 3 | 4; status?: number; group_id?: number; responder_id?: number; type?: string; subject?: string },
 ): Promise<Ticket> {
   return fd<Ticket>(`/tickets/${ticketId}`, {
     method: "PUT",
