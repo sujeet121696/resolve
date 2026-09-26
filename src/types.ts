@@ -23,6 +23,14 @@ export interface CaseFacts {
   currency: string;
   payment_id?: string; // Dodo payment behind the order — required for refund actions
 
+  /**
+   * The OTP-verified caller email (case-context.ts). Carried so money events
+   * land in the audit trail attributed to a customer, which is what the
+   * velocity caps count. Optional: a missing email only means the per-customer
+   * caps cannot attribute this case — the aggregate daily ceiling still applies.
+   */
+  customer_email?: string;
+
   claim_type: "refund" | "plan_change" | "other";
 
   /**
@@ -94,7 +102,7 @@ export interface CaseFacts {
 export interface GuardVerdict {
   decision: "approve" | "deny";
   reason: string;
-  hard_check_failed?: string; // which hard check tripped: unverified | auto_limit | no_payment | awaiting_return
+  hard_check_failed?: string; // which hard check tripped: unverified | auto_limit | no_payment | awaiting_return | velocity_cap | daily_ceiling
 }
 
 export interface ResolutionProposal {

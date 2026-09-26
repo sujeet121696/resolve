@@ -15,8 +15,23 @@
 import fs from "node:fs";
 import path from "node:path";
 
+/**
+ * Optional per-currency velocity caps — all amounts in MINOR UNITS. Entirely
+ * absent by default: no `velocity` block in config/policy.json means the guard
+ * never runs these checks, byte-for-byte the pre-feature behavior. Adding a
+ * guard is adding data, not rearchitecting.
+ */
+export interface VelocityCaps {
+  /** Max refunds one customer may receive per UTC day (0 = none at all). */
+  max_refunds_per_customer_per_day?: number;
+  /** Max refunded amount per customer per UTC day, minor units. */
+  max_amount_per_customer_per_day?: number;
+  /** Circuit breaker: total autonomous refund payout per UTC day, minor units. */
+  max_total_amount_per_day?: number;
+}
+
 export interface Policy {
-  currencies: Record<string, { auto_approve_limit: number }>;
+  currencies: Record<string, { auto_approve_limit: number; velocity?: VelocityCaps }>;
   return_window_days: number;
   escalation_followup_minutes: number;
 }
@@ -56,8 +71,28 @@ function loadPolicy(): Policy {
   }
   const currencies: Policy["currencies"] = { ...DEFAULT_POLICY.currencies };
   for (const [ccy, entry] of Object.entries(parsed?.currencies ?? {})) {
-    const limit = Number((entry as { auto_approve_limit?: unknown })?.auto_approve_limit);
-    if (Number.isFinite(limit)) currencies[ccy.toUpperCase()] = { auto_approve_limit: limit };
+    const raw = entry as { auto_approve_limit?: unknown; velocity?: Record<string, unknown> };
+    const limit = Number(raw?.auto_approve_limit);
+    if (!Number.isFinite(limit)) continue;
+    const resolved: Policy["currencies"][string] = { auto_approve_limit: limit };
+    // Velocity caps parse the same way as the limit: a non-numeric or negative
+    // value reads as "not set" (that cap is skipped), never as zero — a typo
+    // must not become a total refund freeze by accident. An explicit 0 IS
+    // honoured: it means "no autonomous refunds", which is a valid kill switch.
+    const vel = raw?.velocity;
+    if (vel && typeof vel === "object") {
+      const num = (v: unknown): number | undefined => {
+        const n = Number(v);
+        return Number.isFinite(n) && n >= 0 ? n : undefined;
+      };
+      const caps: VelocityCaps = {
+        max_refunds_per_customer_per_day: num(vel.max_refunds_per_customer_per_day),
+        max_amount_per_customer_per_day: num(vel.max_amount_per_customer_per_day),
+        max_total_amount_per_day: num(vel.max_total_amount_per_day),
+      };
+      if (Object.values(caps).some((c) => c !== undefined)) resolved.velocity = caps;
+    }
+    currencies[ccy.toUpperCase()] = resolved;
   }
   const returnWindow = Number(parsed?.return_window_days);
   const followupMinutes = Number(parsed?.escalation_followup_minutes);
@@ -98,4 +133,42 @@ export function limitFor(currency: string | undefined): number | undefined {
   if (configured === undefined) return undefined;
   const limit = Number(configured);
   return Number.isFinite(limit) ? limit : undefined;
+}
+
+/**
+ * Velocity caps for a currency, or undefined when none are configured — which
+ * is the shipped default. config/policy.json only; no env override on purpose:
+ * these are merchant policy numbers, not ops toggles.
+ */
+export function velocityFor(currency: string | undefined): VelocityCaps | undefined {
+  const ccy = currency?.trim().toUpperCase();
+  if (!ccy) return undefined;
+  return getPolicy().currencies[ccy]?.velocity;
+}
+
+/**
+ * Live policy update (Admin UI): set or clear the velocity caps for a currency.
+ * Writes config/policy.json (preserving fields it doesn't own, e.g. _note keys)
+ * AND refreshes the in-process cache in the same call, so the very next guard
+ * check obeys the new caps — no restart. Passing undefined (or all-empty caps)
+ * removes the block, returning the guard to limits-only behavior.
+ */
+export function setVelocity(currency: string, caps: VelocityCaps | undefined): Policy {
+  const ccy = currency.trim().toUpperCase();
+  const known = getPolicy().currencies[ccy];
+  if (!known) throw new Error(`unknown currency ${ccy} — add it to config/policy.json first`);
+  let file: Record<string, any>;
+  try {
+    file = JSON.parse(fs.readFileSync(POLICY_FILE, "utf8"));
+  } catch {
+    file = {};
+  }
+  const currencies = (file.currencies ??= {});
+  const entry = (currencies[ccy] ??= { auto_approve_limit: known.auto_approve_limit });
+  const active = caps && Object.values(caps).some((c) => c !== undefined);
+  if (active) entry.velocity = caps;
+  else delete entry.velocity;
+  fs.writeFileSync(POLICY_FILE, JSON.stringify(file, null, 2) + "\n");
+  cached = loadPolicy(); // reload from the file just written — one source of truth
+  return cached;
 }

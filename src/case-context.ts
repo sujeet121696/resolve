@@ -267,6 +267,7 @@ export async function lookupContext(
     amount: order?.amount_minor ?? 0,
     currency: order?.currency ?? "INR",
     payment_id: order?.payment_id,
+    customer_email: normalizedEmail,
     ownership,
     subscription_id: order?.subscription_id,
     requested_product_id: order?.requested_product_id,

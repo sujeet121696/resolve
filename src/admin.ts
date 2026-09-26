@@ -9,6 +9,8 @@ import express from "express";
 import { dodoClient } from "./integrations/dodo.js";
 import { createTicket } from "./integrations/freshdesk.js";
 import { lookupContext } from "./case-context.js";
+import { getPolicy, setVelocity, type VelocityCaps } from "./policy-config.js";
+import { emitEvent } from "./events.js";
 
 export const admin = express.Router();
 
@@ -74,5 +76,44 @@ admin.post("/verify-context", async (req, res) => {
     res.json(await lookupContext(`admin-verify-${Date.now()}`, email));
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// Live policy-guard settings. GET shows the policy in force; POST toggles the
+// velocity caps for one currency. setVelocity persists to config/policy.json
+// AND refreshes the in-process cache, so the very next call obeys the change —
+// no restart. Dormant by default: with enabled=false (or no caps saved) the
+// guard's velocity checks never run.
+admin.get("/policy", (_req, res) => res.json(getPolicy()));
+
+admin.post("/policy/velocity", (req, res) => {
+  const body = req.body ?? {};
+  const currency = typeof body.currency === "string" ? body.currency.trim().toUpperCase() : "";
+  if (!currency) return res.status(400).json({ error: "currency required" });
+  const num = (v: unknown): number | undefined => {
+    if (v === undefined || v === null || v === "") return undefined;
+    const n = Number(v);
+    return Number.isFinite(n) && n >= 0 ? n : undefined;
+  };
+  const caps: VelocityCaps | undefined = body.enabled
+    ? {
+        max_refunds_per_customer_per_day: num(body.max_refunds_per_customer_per_day),
+        max_amount_per_customer_per_day: num(body.max_amount_per_customer_per_day),
+        max_total_amount_per_day: num(body.max_total_amount_per_day),
+      }
+    : undefined;
+  if (body.enabled && !Object.values(caps!).some((c) => c !== undefined)) {
+    return res.status(400).json({ error: "enabling requires at least one cap value" });
+  }
+  try {
+    const policy = setVelocity(currency, caps);
+    emitEvent(
+      "policy.updated",
+      `Velocity caps for ${currency} ${caps ? "ENABLED" : "disabled"} via Admin UI — in force for the next call`,
+      { currency, velocity: caps ?? null },
+    );
+    res.json(policy);
+  } catch (err) {
+    res.status(400).json({ error: (err as Error).message });
   }
 });

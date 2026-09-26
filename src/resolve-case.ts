@@ -392,7 +392,13 @@ export async function resolveCase(
     return providerFailed(facts, proposal, verdict, "refund", err);
   }
   completeAction(facts.ticket_id, refund);
-  emitEvent("money.refund", `Refund ${refund.refund_id} → ${refund.status}`, { ...refund });
+  // order_id + customer_email ride along so the audit line is attributable —
+  // the guard's velocity caps count these events per customer per day.
+  emitEvent("money.refund", `Refund ${refund.refund_id} → ${refund.status}`, {
+    ...refund,
+    order_id: facts.order_id,
+    customer_email: facts.customer_email,
+  });
 
   // Helpdesk note — the audit trail on the ticket. Failure here must not
   // undo the (already completed) refund; it's logged and the case continues.

@@ -1,5 +1,14 @@
 import { useEffect, useState } from "react";
-import { createDemoTicket, getCatalog, mintPayment, verifyContext, type CatalogItem } from "../lib/api";
+import {
+  createDemoTicket,
+  getCatalog,
+  getPolicyConfig,
+  mintPayment,
+  saveVelocityCaps,
+  verifyContext,
+  type CatalogItem,
+  type PolicyDto,
+} from "../lib/api";
 
 export default function Admin() {
   const [products, setProducts] = useState<CatalogItem[]>([]);
@@ -18,6 +27,24 @@ export default function Admin() {
   const [verifyResult, setVerifyResult] = useState<Record<string, unknown> | null>(null);
   const [verifyBusy, setVerifyBusy] = useState(false);
 
+  // Policy guard — live velocity caps. Dormant until enabled here.
+  const [policy, setPolicy] = useState<PolicyDto | null>(null);
+  const [velCcy, setVelCcy] = useState("USD");
+  const [velEnabled, setVelEnabled] = useState(false);
+  const [velMaxRefunds, setVelMaxRefunds] = useState("");
+  const [velMaxCustomer, setVelMaxCustomer] = useState("");
+  const [velMaxTotal, setVelMaxTotal] = useState("");
+  const [velBusy, setVelBusy] = useState(false);
+  const [velMsg, setVelMsg] = useState("");
+
+  function syncVelocityForm(p: PolicyDto, ccy: string) {
+    const v = p.currencies[ccy]?.velocity;
+    setVelEnabled(Boolean(v));
+    setVelMaxRefunds(v?.max_refunds_per_customer_per_day !== undefined ? String(v.max_refunds_per_customer_per_day) : "");
+    setVelMaxCustomer(v?.max_amount_per_customer_per_day !== undefined ? String(v.max_amount_per_customer_per_day / 100) : "");
+    setVelMaxTotal(v?.max_total_amount_per_day !== undefined ? String(v.max_total_amount_per_day / 100) : "");
+  }
+
   useEffect(() => {
     getCatalog().then((c) => {
       setProducts(c.products);
@@ -25,7 +52,55 @@ export default function Admin() {
       setProductId(c.products[0]?.id ?? "");
       setCustomerId(c.customers[0]?.id ?? "");
     });
+    getPolicyConfig().then((p) => {
+      setPolicy(p);
+      const ccy = p.currencies.USD ? "USD" : Object.keys(p.currencies)[0] ?? "USD";
+      setVelCcy(ccy);
+      syncVelocityForm(p, ccy);
+    });
   }, []);
+
+  function onVelCcyChange(ccy: string) {
+    setVelCcy(ccy);
+    setVelMsg("");
+    if (policy) syncVelocityForm(policy, ccy);
+  }
+
+  function onVelEnabledChange(checked: boolean) {
+    setVelEnabled(checked);
+    // One-click enable: prefill demo-safe defaults when everything is empty,
+    // so Enable → Save works without typing. 1 refund/customer/day is the cap
+    // that makes a same-day repeat call deny; the amounts are high enough to
+    // never interfere with the scripted scenarios.
+    if (checked && !velMaxRefunds && !velMaxCustomer && !velMaxTotal) {
+      setVelMaxRefunds("1");
+      setVelMaxCustomer("50");
+      setVelMaxTotal("100");
+    }
+  }
+
+  async function onSaveVelocity() {
+    setVelBusy(true);
+    setVelMsg("");
+    try {
+      const updated = await saveVelocityCaps(velCcy, velEnabled, {
+        max_refunds_per_customer_per_day: velMaxRefunds === "" ? undefined : Number(velMaxRefunds),
+        max_amount_per_customer_per_day: velMaxCustomer === "" ? undefined : Math.round(Number(velMaxCustomer) * 100),
+        max_total_amount_per_day: velMaxTotal === "" ? undefined : Math.round(Number(velMaxTotal) * 100),
+      });
+      setPolicy(updated);
+      syncVelocityForm(updated, velCcy);
+      setVelMsg(
+        velEnabled
+          ? `Velocity caps ENABLED for ${velCcy} — in force for the very next call, no restart.`
+          : `Velocity caps disabled for ${velCcy} — guard is back to per-case limits only.`,
+      );
+    } catch (err) {
+      setVelMsg(`Error: ${(err as Error).message}`);
+    } finally {
+      setVelBusy(false);
+    }
+  }
 
   async function onMint() {
     setMintBusy(true);
@@ -64,14 +139,80 @@ export default function Admin() {
 
   return (
     <div className="admin">
-      <h1>Demo scenario setup</h1>
+      <h1>Merchant console</h1>
       <p className="sub">
-        Mints a real Dodo test payment and creates the matching Freshdesk ticket. The Shopify order itself still has
-        to be created manually in Shopify Admin (read-only scope, by design) — this just speeds up the other two.
+        Live controls for what the Resolve agent is allowed to do with money — changes take effect on the next call,
+        no deploy or restart. Sandbox tooling for new scenarios (test payments, tickets) lives below.
       </p>
 
       <section className="admin-step">
-        <h2>1. Mint a test payment</h2>
+        <h2>Policy guard — velocity caps (live)</h2>
+        <p className="sub">
+          Dormant until enabled. Saving updates <code>config/policy.json</code> AND the running guard in one move —
+          the very next call obeys it, no restart. Leave a field empty to skip that cap; amounts are in major units
+          (e.g. dollars).
+        </p>
+        <div className="admin-row">
+          <select value={velCcy} onChange={(e) => onVelCcyChange(e.target.value)}>
+            {Object.keys(policy?.currencies ?? { USD: null }).map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+          <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <input type="checkbox" checked={velEnabled} onChange={(e) => onVelEnabledChange(e.target.checked)} />
+            Enabled
+          </label>
+          <input
+            type="number"
+            min={0}
+            placeholder="max refunds / customer / day"
+            title="Max refunds one customer may receive per day"
+            value={velMaxRefunds}
+            onChange={(e) => setVelMaxRefunds(e.target.value)}
+            disabled={!velEnabled}
+            style={{ width: 190 }}
+          />
+          <input
+            type="number"
+            min={0}
+            placeholder={`max amount / customer / day (${velCcy})`}
+            title="Max refunded amount per customer per day"
+            value={velMaxCustomer}
+            onChange={(e) => setVelMaxCustomer(e.target.value)}
+            disabled={!velEnabled}
+            style={{ width: 210 }}
+          />
+          <input
+            type="number"
+            min={0}
+            placeholder={`daily total ceiling (${velCcy})`}
+            title="Circuit breaker: total autonomous refund payout per day"
+            value={velMaxTotal}
+            onChange={(e) => setVelMaxTotal(e.target.value)}
+            disabled={!velEnabled}
+            style={{ width: 180 }}
+          />
+          <button
+            onClick={onSaveVelocity}
+            disabled={velBusy || !policy || (velEnabled && !velMaxRefunds && !velMaxCustomer && !velMaxTotal)}
+          >
+            {velBusy ? "Saving…" : "Save"}
+          </button>
+        </div>
+        {policy && (
+          <p className="admin-result">
+            In force for {velCcy}: auto-approve limit{" "}
+            <code>{(policy.currencies[velCcy]?.auto_approve_limit ?? 0) / 100}</code> · velocity caps{" "}
+            <b>{policy.currencies[velCcy]?.velocity ? "ON" : "off"}</b>
+          </p>
+        )}
+        {velMsg && <p className="admin-result">{velMsg}</p>}
+      </section>
+
+      <section className="admin-step">
+        <h2>Sandbox — 1. Mint a test payment</h2>
         <div className="admin-row">
           <select value={productId} onChange={(e) => setProductId(e.target.value)}>
             {products.map((p) => (
@@ -117,7 +258,7 @@ export default function Admin() {
       </section>
 
       <section className="admin-step">
-        <h2>2. After creating the Shopify order, create the matching ticket</h2>
+        <h2>Sandbox — 2. Create the matching helpdesk ticket</h2>
         <div className="admin-row">
           <input
             placeholder="Shopify order number, e.g. 1004"
@@ -144,7 +285,7 @@ export default function Admin() {
       </section>
 
       <section className="admin-step">
-        <h2>3. Verify it resolves correctly before testing live</h2>
+        <h2>Sandbox — 3. Verify the case resolves correctly</h2>
         <div className="admin-row">
           <button onClick={onVerify} disabled={verifyBusy || !email}>
             {verifyBusy ? "Checking…" : `Verify get-context for ${email || "…"}`}
