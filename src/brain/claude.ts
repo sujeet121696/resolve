@@ -76,6 +76,9 @@ structured case facts below, propose the single most appropriate action.
 Rules:
 - action must be one of: refund, plan_change, escalate, refuse
 - refund only makes sense for a refund claim with a payment attached
+- a refund claim on an order whose fulfillment_status is UNFULFILLED or
+  IN_PROGRESS is a normal cancel-before-ship request — nothing shipped, so
+  that alone is not contradictory and needs no escalation
 - when facts look incomplete or contradictory, prefer escalate
 - summary: one short line describing the proposed action for an audit log
 
