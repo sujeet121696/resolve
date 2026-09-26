@@ -11,6 +11,42 @@ The brain is **channel-agnostic**: the same agents serve voice and chat — voic
 
 ---
 
+## What it is
+
+A multi-agent, voice-first support system. A conversational voice agent (ElevenLabs) on a real Indian phone number (Vobiz) front-ends a policy-guarded action layer: the caller is OTP-verified, their case is pulled from Freshdesk, an AI resolution brain decides under merchant policy, an independent Policy-Guard approves or vetoes, and the approved refund executes through Dodo Payments — live, mid-call. The same brain also serves chat.
+
+## What it does (business objective)
+
+- **Closes the last mile of support**: executes the resolution (refund, return, escalation) instead of describing it — the ticket updates itself, the customer gets voice + email confirmation.
+- **Collapses resolution time from days to under 90 seconds**, and cost-per-resolution from a human-touched ticket to API pennies.
+- **Executes the merchant's existing policy at machine speed** — auto-approve limits, return gates, per-customer velocity caps and a daily payout ceiling, all merchant-configurable live from a console, with every decision on an auditable trail.
+- **Knows what it doesn't know**: low-confidence or over-limit cases escalate to a human with a structured call briefing, and the agent schedules its own follow-up.
+
+## What it doesn't do (out of scope)
+
+- No plan-change executor yet (typed, guard-checked, but returns `unsupported` rather than pretending), no replacement/exchange flows, and no real courier booking — a token-guarded webhook stands in for the warehouse scan.
+- No WhatsApp channel, multi-tenant auth, or analytics dashboards — architecture extends to them; the hackathon hours went to making the money loop flawless.
+- Never moves money without OTP identity, order ownership, policy, and Policy-Guard approval — by design there is no override path from the conversation.
+
+## Product Integrations
+
+| Product | Used for |
+|---|---|
+| **Freshworks (Freshdesk)** | System of record: caller's tickets looked up by OTP-verified email; resolutions written back as private audit notes; status/priority updates; escalations filed as prioritized tickets with a structured human briefing; Freshdesk chat widget in the web demo |
+| **Sarvam AI** | Resolution brain (`sarvam-105b-conversations`): proposes the action and independently re-judges it, confidence-scored (`BRAIN=sarvam`) |
+| **Anthropic (Claude)** | Alternative resolution brain behind the same seam (`BRAIN=claude`); the project itself was built with Claude Code |
+| **ElevenLabs** | Conversational voice agent — STT, TTS, turn-taking, Hindi/English |
+| **Vobiz** | Real Indian phone number (DID) routed over a SIP trunk into the ElevenLabs agent — TRAI-compliant inbound telephony |
+| **Dodo Payments** | Refund execution via SDK (real transactions, test mode); payment path validated with Dodo's MCP server |
+| **Shopify** | Order system: order facts and email→order ownership verification (deliberately read-only scope) |
+| **Groq / Gemini** | Additional interchangeable brains behind the same interface — the brain is a config choice, not an architecture |
+
+## System Interaction Diagram
+
+See [Architecture](#architecture) below — caller/chat → ElevenLabs agent → orchestrator (verify → Freshdesk context → resolution brain → Policy-Guard → Dodo execution → Freshdesk close), with the ops view and audit trail observing every step.
+
+---
+
 ## The Problem
 
 Support "resolution" today ends where the real resolution begins. AI chatbots deflect and summarize — but when the fix requires **money to move** (a refund, a plan downgrade, a replacement order), the customer gets a ticket number and a multi-day wait while a human copies data between the helpdesk, the payment system, and the order system.
@@ -156,7 +192,30 @@ resolve/
 - **More last-mile actions:** exchanges, address changes, subscription pauses
 - **Language expansion:** Tamil, Telugu, Kannada, Bengali via ElevenLabs multilingual voices
 - **Freshworks Marketplace app:** one-click install for any Freshdesk workspace
-- **Policy-as-config:** merchants define autonomy limits in plain language
+- **Policy-as-config:** shipped first: `config/policy.json` + live-editable velocity caps (per-customer daily caps, daily payout ceiling) from the Merchant console — next, autonomy limits in plain language
+
+## Final submission (Stage 2)
+
+| Field | Value |
+|---|---|
+| Team Name | Resolve *(exactly as registered on Devpost — `devpost.com/software/resolve-k72r3w`)* |
+| Selected Track | Track 1: Customer Experience & Employee Onboarding |
+| GitHub Repository | https://github.com/sujeet121696/resolve |
+| PPT / Presentation | *TODO — upload deck, paste share link (test in incognito)* |
+| Demo Video URL | *TODO — record & upload Stage 2 video, paste link* |
+| Deployment / Live URL | https://resolve.kharidwise.com |
+
+**2–3 line description:**
+Resolve is a voice-first support agent that closes tickets with money, not words. A customer calls, is OTP-verified, and Resolve pulls their case from Freshdesk, checks it against merchant policy, and executes the refund live through Dodo Payments mid-call — with an independent Policy-Guard agent that must approve every money-moving action. Under-90-second resolutions for what today takes days of email ping-pong; unsure cases escalate to a human with a full briefing.
+
+**How Freshworks is integrated:**
+Freshdesk is Resolve's system of record. The agent looks up the caller's open tickets by their OTP-verified email, reads the case from the ticket, and — after acting — writes the resolution back as a private audit note, updates ticket status/priority, and files escalations as prioritized tickets with a structured human briefing. The web demo also embeds the Freshdesk chat widget, so the same brain serves voice and Freshdesk chat.
+
+**Sarvam usage:**
+Sarvam's hosted `sarvam-105b-conversations` model powers the resolution brain — it proposes the action for each case and independently re-judges it (confidence-scored, JSON mode) behind the same interface as our other brains, selectable via `BRAIN=sarvam`. The policy guard's hard checks remain deterministic code, so Sarvam does the judgment, never the money call itself.
+
+**Vobiz usage:**
+Vobiz provides Resolve's real Indian phone number (+91 80642 66330): a paid DID routed over a Vobiz SIP trunk (`resolve-inbound`) into the ElevenLabs conversational agent — the TRAI-compliant way to give an Indian caller a local number, where Twilio blocks trial number import. Callers dial a normal local number and reach the agent directly.
 
 ## License
 
