@@ -10,7 +10,8 @@
 import { neverShipped, type GuardVerdict, type ResolutionProposal } from "../types.js";
 import { getBrain } from "../brain.js";
 import { emitEvent } from "../events.js";
-import { getPolicy, limitFor } from "../policy-config.js";
+import { getPolicy, limitFor, velocityFor } from "../policy-config.js";
+import { readAudit } from "../audit.js";
 
 // Store-wide return window; a product can override it via return_window_days.
 // Source of truth is config/policy.json; RETURN_WINDOW_DAYS env var still wins
@@ -111,6 +112,44 @@ export async function guardCheck(
   if (checkAs === "refund" && !facts.payment_id) {
     return hardDeny("no_payment", "refund proposed but no payment is linked to the order");
   }
+  // Velocity caps — OFF unless config/policy.json carries a `velocity` block
+  // for this currency (none is shipped). Catches what the per-case limit
+  // cannot: one customer farming many small under-limit refunds, and a
+  // systemic fault paying out all day. Counted from the audit trail (today's
+  // money.refund events, UTC), so restarts don't reset the meter.
+  if (checkAs === "refund") {
+    const caps = velocityFor(facts.currency);
+    if (caps) {
+      const today = todayRefundTotals(facts.currency, facts.customer_email);
+      if (
+        caps.max_refunds_per_customer_per_day !== undefined &&
+        today.customerCount >= caps.max_refunds_per_customer_per_day
+      ) {
+        return hardDeny(
+          "velocity_cap",
+          `customer already received ${today.customerCount} refund(s) today — the per-customer daily cap is ${caps.max_refunds_per_customer_per_day}`,
+        );
+      }
+      if (
+        caps.max_amount_per_customer_per_day !== undefined &&
+        today.customerAmount + facts.amount > caps.max_amount_per_customer_per_day
+      ) {
+        return hardDeny(
+          "velocity_cap",
+          `refund would take this customer to ${today.customerAmount + facts.amount} ${facts.currency} today, over the per-customer daily cap ${caps.max_amount_per_customer_per_day}`,
+        );
+      }
+      if (
+        caps.max_total_amount_per_day !== undefined &&
+        today.totalAmount + facts.amount > caps.max_total_amount_per_day
+      ) {
+        return hardDeny(
+          "daily_ceiling",
+          `refund would take today's total autonomous payout to ${today.totalAmount + facts.amount} ${facts.currency}, over the daily ceiling ${caps.max_total_amount_per_day}`,
+        );
+      }
+    }
+  }
   // ON_HOLD is the order platform saying "something is wrong with this order"
   // — fraud review, a stuck cancellation, an inventory dispute. Refunding into
   // that is a human's call, whatever the amount.
@@ -172,4 +211,35 @@ function hardDeny(check: string, reason: string): GuardVerdict {
   };
   emitEvent("guard.denied", verdict.reason, { hard_check: check });
   return verdict;
+}
+
+/**
+ * What actually went out today (UTC), from the audit trail's money.refund
+ * events — the same file the ops view reads, so the meter the guard enforces
+ * is the meter a human can inspect. Only called when velocity caps are
+ * configured, so the shipped default never pays the file read. Events written
+ * before customer_email enrichment (or with no email) still count toward the
+ * daily total; they just can't be attributed to a customer.
+ */
+function todayRefundTotals(
+  currency: string,
+  customerEmail: string | undefined,
+): { customerCount: number; customerAmount: number; totalAmount: number } {
+  const today = new Date().toISOString().slice(0, 10);
+  const ccy = currency.toUpperCase();
+  let customerCount = 0;
+  let customerAmount = 0;
+  let totalAmount = 0;
+  for (const ev of readAudit()) {
+    if (ev.type !== "money.refund" || !ev.ts?.startsWith(today)) continue;
+    const data = (ev.data ?? {}) as { amount?: number; currency?: string; customer_email?: string };
+    if ((data.currency ?? "").toUpperCase() !== ccy) continue;
+    const amount = Number.isFinite(Number(data.amount)) ? Number(data.amount) : 0;
+    totalAmount += amount;
+    if (customerEmail && data.customer_email === customerEmail) {
+      customerCount += 1;
+      customerAmount += amount;
+    }
+  }
+  return { customerCount, customerAmount, totalAmount };
 }

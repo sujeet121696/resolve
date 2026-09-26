@@ -34,6 +34,10 @@ import { emitEvent } from "./events.js";
 // own prose too, which is how real support tickets reference an order.
 const ORDER_ID_RE = /\bORD-\d+\b/i;
 
+// Subject given to tickets this module creates for a fresh contact; renamed to
+// name the order once lookup has identified it (see below).
+const PLACEHOLDER_SUBJECT = "Support call — details pending";
+
 /**
  * What the return gate keys off. `not_required` is the "skip the gate" status
  * and covers BOTH digital goods and non-returnable physical ones.
@@ -104,16 +108,41 @@ export async function lookupContext(
   let ticket = await helpdesk.getTicket(Number(conversationId)).catch(() => undefined);
 
   if (!ticket) {
-    if (tickets.length === 0) {
-      // No prior ticket for this caller at all — a real first-time contact.
-      // Freshdesk-specific on purpose (see the Helpdesk interface's own
-      // comment on why createTicket isn't part of it): every call should
-      // leave a record for a human to find, even one we can't self-serve.
+    // A ticket is one CASE, not the caller's permanent file: Resolved (4) and
+    // Closed (5) tickets are finished business, so a caller coming back after
+    // a successful refund gets a fresh ticket — with a fresh idempotency slot
+    // (actions are keyed by ticket id) — instead of bouncing off the old one.
+    const active = tickets.filter((t) => t.status === 2 || t.status === 3);
+    if (active.length === 0) {
+      // No active ticket for this caller. Before minting one, ask the order
+      // system whether this email has ANY order: on a voice line a brand-new
+      // email with no orders is almost always a misheard address, and a
+      // "not found" answer lets the agent ask for the spelling again instead
+      // of walking a junk ticket through OTP and a pointless escalation.
+      // Only when the source can actually answer (Shopify) — local keeps the
+      // old always-create behavior.
+      const orderSource = getOrderSource();
+      if (orderSource.latestOrderIdForEmail && !(await orderSource.latestOrderIdForEmail(normalizedEmail))) {
+        emitEvent(
+          "context.email_unknown",
+          `${normalizedEmail} has no active tickets and no orders (${orderSource.name}) — asking the caller to confirm the email`,
+          { conversation_id: conversationId },
+        );
+        return { found: false, message: "No account or orders found for that email address. Please confirm the spelling." };
+      }
+      // A real contact with a real order — every call should leave a record
+      // for a human to find, even one we can't self-serve. Freshdesk-specific
+      // on purpose (see the Helpdesk interface's own comment on why
+      // createTicket isn't part of it).
       ticket = await createTicket({
-        subject: "Support call — details pending",
-        descriptionHtml: "New voice/chat contact — no prior ticket on file for this email.",
+        subject: PLACEHOLDER_SUBJECT,
+        descriptionHtml:
+          tickets.length === 0
+            ? "New voice/chat contact — no prior ticket on file for this email."
+            : "Returning voice/chat contact — previous tickets are resolved or closed, so this is a new case.",
         email: normalizedEmail,
         name: normalizedEmail,
+        tags: ["resolve-agent"],
       }).catch((err) => {
         emitEvent("context.ticket_create_failed", `Could not create a ticket for ${normalizedEmail}: ${(err as Error).message}`);
         return undefined;
@@ -122,8 +151,8 @@ export async function lookupContext(
         return { found: false, message: "No account or open ticket found for that email address." };
       }
     } else {
-      // Newest ticket wins; the list API omits bodies, so fetch the full ticket.
-      const newest = [...tickets].sort((a, b) => b.id - a.id)[0];
+      // Newest ACTIVE ticket wins; the list API omits bodies, so fetch the full ticket.
+      const newest = [...active].sort((a, b) => b.id - a.id)[0];
       ticket = await helpdesk.getTicket(newest.id);
     }
   }
@@ -158,6 +187,21 @@ export async function lookupContext(
         );
       }
       orderId = latest;
+    }
+  }
+
+  // Tickets this module created carry a placeholder subject; once the order is
+  // known, name the ticket after it so the Freshdesk list is scannable. A
+  // rename failure must never take the call down — it just keeps the placeholder.
+  if (orderId && ticket.subject === PLACEHOLDER_SUBJECT) {
+    try {
+      ticket = await helpdesk.updateTicket(ticket.id, {
+        subject: `Support call — ${orderId} (${normalizedEmail})`,
+      });
+    } catch (err) {
+      emitEvent("case.warn", `Could not rename ticket #${ticket.id}: ${(err as Error).message}`, {
+        conversation_id: conversationId,
+      });
     }
   }
 
@@ -223,6 +267,7 @@ export async function lookupContext(
     amount: order?.amount_minor ?? 0,
     currency: order?.currency ?? "INR",
     payment_id: order?.payment_id,
+    customer_email: normalizedEmail,
     ownership,
     subscription_id: order?.subscription_id,
     requested_product_id: order?.requested_product_id,

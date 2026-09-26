@@ -8,14 +8,15 @@
   },
   "voice": {
     "provider": "ElevenLabs Conversational AI",
-    "usd_per_min": 0.15,
+    "usd_per_min": 0.04,
     "usd_per_credit": 0.00022,
-    "note": "usd_per_credit = Creator plan $22 / ~100k credits. usd_per_min derived from actual charges: active calls burn ~600-680 credits/min (measured across our 40 real conversations). Demo-scale cash cost is the flat $22/mo plan."
+    "note": "usd_per_min = measured actuals on a matched basis: 23,472 billed credits over 129.8 min for the same 49 conversations (ElevenLabs billing metadata, Sept 26 2026) = 181 credits/min x usd_per_credit = $0.0398, rounded 0.04. ElevenLabs list price is $0.15/min - use that for a conservative headline. usd_per_credit = Creator plan $22 / ~100k credits."
   },
   "telephony": {
     "provider": "Vobiz (PSTN, India DID)",
     "inr_per_min": 0.5,
-    "usd_per_inr": 0.012
+    "usd_per_inr": 0.01044,
+    "rate_note": "usd_per_inr = 1/95.82 (USD/INR, Sept 26 2026)"
   },
   "payments": {
     "provider": "Dodo Payments",

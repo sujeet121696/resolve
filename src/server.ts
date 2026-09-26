@@ -60,7 +60,13 @@ app.get("/app-config", (_req, res) => {
 // where the raw audit trail (audit-report.ts) deliberately is not.
 app.get("/dashboard-metrics", async (req, res) => {
   try {
-    res.json(await dashboardMetrics(req.query.period === "today" ? "today" : "all"));
+    res.json(
+      await dashboardMetrics({
+        minutes: typeof req.query.minutes === "string" ? Number(req.query.minutes) : undefined,
+        date: typeof req.query.date === "string" ? req.query.date : undefined,
+        period: req.query.period === "today" ? "today" : req.query.period === "all" ? "all" : undefined,
+      }),
+    );
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
   }

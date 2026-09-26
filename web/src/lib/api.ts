@@ -52,3 +52,35 @@ export async function verifyContext(email: string): Promise<Record<string, unkno
   });
   return res.json();
 }
+
+export interface VelocityCapsDto {
+  max_refunds_per_customer_per_day?: number;
+  max_amount_per_customer_per_day?: number; // minor units
+  max_total_amount_per_day?: number; // minor units
+}
+
+export interface PolicyDto {
+  currencies: Record<string, { auto_approve_limit: number; velocity?: VelocityCapsDto }>;
+  return_window_days: number;
+  escalation_followup_minutes: number;
+}
+
+export async function getPolicyConfig(): Promise<PolicyDto> {
+  const res = await fetch("/admin/policy");
+  return res.json();
+}
+
+export async function saveVelocityCaps(
+  currency: string,
+  enabled: boolean,
+  caps: VelocityCapsDto,
+): Promise<PolicyDto> {
+  const res = await fetch("/admin/policy/velocity", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ currency, enabled, ...caps }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error((data as { error?: string }).error ?? "failed to save policy");
+  return data as PolicyDto;
+}
