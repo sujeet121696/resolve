@@ -1,6 +1,6 @@
 # Recording notes
 
-Scenario scripts live in `docs/DEMO-SCENARIOS.md`. This is only what matters while
+Scenario scripts live in `docs/demo/DEMO-SCENARIOS.md`. This is only what matters while
 a camera is running.
 
 ## Audio capture — the thing that ruins these recordings

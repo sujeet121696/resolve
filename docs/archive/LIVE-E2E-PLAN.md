@@ -1,5 +1,7 @@
 # Live end-to-end plan — Studio + Freshdesk + Shopify + Dodo
 
+> Archived — superseded by ../TASKS.md and the locked 4-flow demo scope in ../PRD.md.
+
 Goal: the Stage 2 demo runs **fully live** — no `OMS=local` data on screen.
 
 ```

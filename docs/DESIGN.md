@@ -1,6 +1,6 @@
 # Resolve — Design Decisions & Runtime Workflow
 
-> Settled BEFORE the build so hour 3 has no surprises. Companion to ../README.md (architecture) and SPIKES.md (validation evidence).
+> Settled BEFORE the build so hour 3 has no surprises. Companion to ../README.md and archive/SPIKES.md (validation evidence).
 
 ## The call, beat by beat
 
@@ -35,7 +35,7 @@ The guard records `action_executed` against the ticket before firing Dodo. A rep
 ### 4. Policy-Guard input contract — structured fields only
 The guard receives `{amount, currency, order_id, claim_type, item_type, return_status, customer_history, resolution_confidence}` — **never the conversation transcript**. The conversation agent can be sweet-talked; it just can't approve anything. Conversation and authority are separate processes. This is the prompt-injection defense and it holds only if this contract is never relaxed "just to give the guard more context."
 
-### 5. Dodo integration facts (from SPIKES.md, apply in `integrations/dodo.ts`)
+### 5. Dodo integration facts (from archive/SPIKES.md, apply in `integrations/dodo.ts`)
 - `DODO_PAYMENTS_ENVIRONMENT=test_mode` is mandatory — SDK defaults to live and 401s.
 - API keys have **no** `dodo_test_` prefix — copy verbatim.
 - Test-mode fees drain the merchant wallet → **seed several payments** so full refunds clear; partial refunds always work.

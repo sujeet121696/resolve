@@ -51,7 +51,7 @@ links** printed to the terminal. Then the manual part:
 - **Checkout links expire within hours.** Mint fresh (`npm run seed`) right
   before paying — a stale link fails.
 - **INR is rejected in test mode** (`PAYMENT_METHOD_UNSUPPORTED`). Seed USD;
-  the agent narrates ₹ amounts (transparent dual-label, see DESIGN.md).
+  the agent narrates ₹ amounts (transparent dual-label, see ../DESIGN.md).
 - **Test-mode fees drain the merchant wallet**, so FULL refunds start failing
   once the balance dips. Seed several payments; partial refunds always work
   (which is why demo refunds are partial: $14.99 of a $17.99 payment).

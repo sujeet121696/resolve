@@ -4,7 +4,7 @@
 // scenarios. Test mode has no "auto-succeed" — each printed link must be opened
 // once and paid with test card 4242 4242 4242 4242 (any future expiry/CVC).
 // That single manual pass is what puts SUCCEEDED payments in the dashboard for
-// the agent to refund. Amounts are USD (test mode rejects INR — SPIKES.md);
+// the agent to refund. Amounts are USD (test mode rejects INR — docs/archive/SPIKES.md);
 // the demo narrates ₹ with a dual label (DESIGN.md decision 2).
 //
 // Freshdesk half (waits for the account): Sujeet + Priya complaint tickets, with

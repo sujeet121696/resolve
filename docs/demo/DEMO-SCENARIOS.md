@@ -46,4 +46,4 @@ Priya's email throughout, so nothing can move. **Reload between attacks** — C2
 
 Three different defenses: **C1** — chat has no LLM between customer and flow (`chat.ts:20-22` matches an email, six digits, and yes); **on voice the reason differs** — there the agent _is_ an LLM, and what protects you is that the facts and the verified flag live server-side. **C2** — verification lives in the server's OTP store, not in what is said. **C3** — the amount is parsed from the ticket, never from chat.
 
-Fourth attack (HTTP tool layer — `proposed` → `denied`): `docs/RUNBOOK.md` §7b. Recording setup and measured timings: `docs/RECORDING-NOTES.md`.
+Fourth attack (HTTP tool layer — `proposed` → `denied`): `docs/RUNBOOK.md` §7b. Recording setup and measured timings: `docs/demo/RECORDING-NOTES.md`.

@@ -14,6 +14,7 @@
     "setup:voice": "tsx src/setup-voice.ts",
     "seed:repeat": "tsx src/seed-repeat.ts",
     "seed:planchange": "tsx src/seed-planchange.ts",
+    "seed:shopify": "tsx src/seed-shopify.ts",
     "audit": "tsx src/audit-report.ts",
     "dev:web": "yarn --cwd web dev",
     "build:web": "yarn --cwd web build",

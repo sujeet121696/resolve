@@ -1,5 +1,5 @@
 // Dodo Payments wrapper (official Node SDK).
-// Gotchas from SPIKES.md, applied here:
+// Gotchas from docs/archive/SPIKES.md, applied here:
 //   - DODO_PAYMENTS_ENVIRONMENT=test_mode is mandatory (SDK defaults to live → 401)
 //   - keys have no "dodo_test_" prefix
 //   - test-mode fees drain the wallet → seed several payments so full refunds clear

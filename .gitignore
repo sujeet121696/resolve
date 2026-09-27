@@ -17,6 +17,7 @@ data/
 
 # Local tooling
 .claude/
+.fdk/
 tmp-*.ts
 node_modules/
 dist/

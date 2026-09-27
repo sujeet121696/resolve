@@ -3,7 +3,7 @@
 > The pre-hackathon build, step by step. Each step ends with something visible and a concrete test.
 > No step depends on a later step. Status updates as we go: ⬜ todo · 🔄 in progress · ✅ done
 >
-> Companions: ../README.md (what & why) · DESIGN.md (decisions) · SPIKES.md (validation evidence)
+> Archived — historical build tracker, not current status (see ../TASKS.md). Companions: ../../README.md (what & why) · ../DESIGN.md (decisions) · SPIKES.md (validation evidence)
 
 ## Status board
 

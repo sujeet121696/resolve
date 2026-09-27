@@ -1,7 +1,7 @@
 # Resolve — Runbook
 
 > The operator manual: how to start, run, and demo Resolve, step by step.
-> Companion docs: ../README.md (what & why) · BUILD-PLAN.md (build tracker) · DESIGN.md (decisions)
+> Companion docs: ../README.md (what & why) · TASKS.md (status) · DESIGN.md (decisions)
 
 ---
 
@@ -34,7 +34,7 @@ Accounts you need (all free tiers, personal email):
 | Sarvam AI (1st fallback brain) | indus.sarvam.ai | `SARVAM_API_KEY` |
 | Groq (2nd fallback brain) | console.groq.com | `GROQ_API_KEY` |
 | Gemini (legacy fallback, optional) | aistudio.google.com | `GEMINI_API_KEY` |
-| Cloudflare Tunnel | dash.cloudflare.com | named tunnel + `cloudflared-config.yml`; its hostname goes in `PUBLIC_BASE_URL` (ngrok also works) |
+| Cloudflare Tunnel | dash.cloudflare.com | named tunnel + `config/cloudflared.yml`; its hostname goes in `PUBLIC_BASE_URL` (ngrok also works) |
 
 Also set: `BRAIN=auto-claude` (Claude primary, Sarvam then Groq fallback —
 the production default since Sept 2026; `BRAIN=auto` still works as the
@@ -52,8 +52,8 @@ Order matters only in that the tunnel needs the server. Two terminals:
 # Terminal 1 — the orchestrator (port 3000)
 npm run dev
 
-# Terminal 2 — the public tunnel (hostname comes from cloudflared-config.yml)
-cloudflared tunnel --config cloudflared-config.yml run
+# Terminal 2 — the public tunnel (hostname comes from config/cloudflared.yml)
+cloudflared tunnel --config config/cloudflared.yml run
 ```
 
 Health checks:
@@ -307,13 +307,11 @@ followed by `guard.denied` on the ops view. An agent never audits itself.
 
 ## 10. Shopify order source (VERIFIED LIVE Aug 23)
 
-> **Note for repo readers:** the `tmp-*.ts` helpers referenced in this section
-> are local scratch scripts, deliberately not committed. What each does, if you
-> want to recreate one: `tmp-dodo-list.ts` lists test-mode Dodo payments with
+> **Note:** `tmp-dodo-list.ts` and `tmp-shopify-check.ts` below are local scratch
+> scripts, not committed. `tmp-dodo-list.ts` lists test-mode Dodo payments with
 > their refund status (SDK `payments.list`); `tmp-shopify-check.ts` verifies the
-> Shopify token, scope and order query in one run; `tmp-shopify-e2e.ts` seeds a
-> demo ticket by calling the existing `/tools/*` webhooks. Each is ~20 lines
-> against interfaces already in `src/`.
+> Shopify token, scope and order query in one run. Each is ~20 lines against
+> interfaces already in `src/`.
 
 `src/integrations/shopify.ts` implements `OrderSource` against the Admin GraphQL
 API, read-only (`read_orders`). App `resolve-order-source` **v0.2** is installed
@@ -324,8 +322,8 @@ Full E2E proven Aug 23 twice: via curl on /tools/* (ticket #22, refund
 ref_0Nm04yFZaggQ6vTgCV2lY, idempotent on re-fire) and via the WEB CHAT at /app
 (ticket #23, refund ref_0Nm062EU5pfx2dFlWLGz2). Each run SPENDS the payment in
 #1001's Note — per repeat: edit the Note to a fresh FREE payment id
-(`npx tsx tmp-dodo-list.ts`), then mint a ticket with `npx tsx tmp-shopify-e2e.ts`
-(creates a Sujeet ticket for ORD-1001 + pre-marks the return received).
+(`npx tsx tmp-dodo-list.ts`), then mint a ticket with `npm run seed:shopify`
+(creates a Ravi ticket for ORD-1001 + pre-marks the return received).
 
 Per-order recipe (repeat for every order the demo should find):
 

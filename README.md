@@ -151,7 +151,7 @@ you own a domain on Cloudflare) — details in the runbook.
 resolve/
 ├── src/
 │   ├── server.ts          # orchestrator — voice webhooks, chat, OTP, SSE events
-│   ├── brain.ts           # pluggable brain seam (mock / groq / gemini / auto)
+│   ├── brain.ts           # pluggable brain seam (claude / sarvam / groq / gemini / mock)
 │   ├── brain/             # per-provider brains
 │   ├── agents/
 │   │   ├── resolution.ts  # diagnoses case, proposes action
@@ -161,13 +161,17 @@ resolve/
 │   ├── returns.ts         # RMA store: physical goods come back before money goes out
 │   ├── otp.ts             # identity verification (send / verify / lockout)
 │   ├── chat.ts            # chat channel state machine (same brain)
-│   ├── integrations/
-│   │   ├── freshdesk.ts
-│   │   └── dodo.ts
-│   ├── seed.ts            # demo world: products, customers, tickets, payments
-│   └── setup-voice.ts     # scripts the ElevenLabs agent + its 4 tools
-├── web/                   # React UI (Vite) — home, chat, live ops view → /app
-├── docs/                  # RUNBOOK · BUILD-PLAN · DESIGN · SPIKES
+│   ├── integrations/      # Freshdesk, Dodo, Shopify, Freshdesk web chat
+│   ├── seed*.ts           # demo world: products, customers, tickets, payments
+│   └── setup-voice*.ts    # provisions the ElevenLabs agents + their tools
+├── web/                   # React UI (Vite) — home, chat, ops, admin, dashboard → /app
+├── fdk-app/               # Freshdesk marketplace app
+├── config/                # policy.json · pricing.json · cloudflared.yml
+├── docs/                  # PRD · ARCHITECTURE · DESIGN · RULES · TASKS · RUNBOOK
+│   ├── setup/             # per-vendor setup guides
+│   ├── demo/              # demo scripts and recording notes
+│   └── archive/           # build plan, spikes — historical
+├── CLAUDE.md              # entry point for AI coding tools
 └── README.md
 ```
 
