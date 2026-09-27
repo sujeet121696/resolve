@@ -76,10 +76,16 @@ body {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 .nav .brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-weight: 700;
   color: var(--text);
   text-decoration: none;
   font-size: 15px;
+}
+.nav .brand img {
+  border-radius: 6px;
 }
 .nav nav {
   display: flex;

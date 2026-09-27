@@ -10,7 +10,8 @@ export default function App() {
     <div className="app">
       <header className="nav">
         <NavLink to="/" className="brand">
-          Resolve 🎙️💸
+          <img src="/app/logo.png" alt="" width={24} height={24} />
+          Resolve
         </NavLink>
         <nav>
           <NavLink to="/" end>
