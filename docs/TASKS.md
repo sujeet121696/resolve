@@ -1,7 +1,11 @@
 # Resolve — Tasks & Progress
 
-> Last known state: 2026-09-24 (pre-demo). The demo was 2026-09-26 — update this with the outcome.
+> Last known state: 2026-09-30 (post-demo).
 > ⬜ todo · 🔄 in progress · ✅ done · ❓ unknown
+
+## Outcome
+
+**Demo day (2026-09-26): WON "Best Use of Vobiz"** 🏅 at The Great Agent Hackathon (TGPF 2026, Bangalore) — ₹10,000 cash + ₹50,000 Vobiz credits. Live refunds executed on stage. The build continues post-hackathon.
 
 ## Done
 
@@ -14,17 +18,17 @@
 - ✅ Freshdesk relay voice path built and verified over HTTP
 - ✅ Diagnostic events on every early-return path in `/tools/*`
 - ✅ All 4 demo flows rehearsed on local data
+- ✅ All 4 demo flows run on Shopify data — dry-run verified 2026-09-25, live on stage 2026-09-26
+- ✅ USD limit mismatch resolved — `.env.example` now says 50000 ($500), matching `config/policy.json` (2026-09-30)
+- ✅ Hackathon submission complete — event concluded 2026-09-26
 
 ## Open
 
 | | Task | Notes |
 |---|---|---|
-| ❓ | Run the 4 demo flows on Shopify data | Needs one large order for the escalate flow |
 | ❓ | Live-test the relay's reworded stall lines by voice | New wording is committed; no record of a live test yet |
 | ⬜ | Fix relay bug: bot claims the OTP was sent when no tool ran | Only when the order ID isn't given up front. Zero backend events for that ticket. Next: have the user open the workflow's "Execute API action" nodes and report their settings |
 | ⬜ | Verify the relay agent on a real ElevenLabs voice call | Only tested via direct HTTP so far |
-| ⬜ | Resolve the USD limit mismatch | `.env.example` says 5000 ($50), `config/policy.json` says 50000 ($500) |
-| ⬜ | Stage 2 submission: deck link, demo video link | Local-only draft: `docs/DEVPOST-SUBMISSION.md` |
 
 ## Deferred (after the demo)
 
